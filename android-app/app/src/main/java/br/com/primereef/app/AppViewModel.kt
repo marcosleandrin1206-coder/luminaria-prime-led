@@ -75,8 +75,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         pollJob?.cancel()
     }
 
+    private val pausedIds = mutableSetOf<String>()
+
+    /** Suspende o polling de um aparelho (ex.: enquanto o painel web dele está aberto). */
+    fun pausePolling(deviceId: String, paused: Boolean) {
+        if (paused) pausedIds.add(deviceId) else pausedIds.remove(deviceId)
+    }
+
     suspend fun refreshAll() = coroutineScope {
-        _devices.value.map { d -> async { refresh(d) } }.awaitAll()
+        _devices.value.filter { it.id !in pausedIds }.map { d -> async { refresh(d) } }.awaitAll()
     }
 
     private suspend fun refresh(d: Device) {

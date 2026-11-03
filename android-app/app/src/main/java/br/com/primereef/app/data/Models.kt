@@ -11,6 +11,7 @@ enum class Protocol {
 /** Famílias de aparelhos do ecossistema Prime Reef Brasil. */
 enum class DeviceType(val key: String, val label: String, val plural: String) {
     LUMINARIA("luminaria", "Luminária", "Iluminação"),
+    KH("kh", "AquaPrime KH", "Medidores de KH"),
     DOSADORA("dosadora", "Dosadora", "Dosadoras"),
     BOMBA("bomba", "Bomba", "Bombas e circulação"),
     ATO("ato", "Reposição (ATO)", "Reposição de água"),

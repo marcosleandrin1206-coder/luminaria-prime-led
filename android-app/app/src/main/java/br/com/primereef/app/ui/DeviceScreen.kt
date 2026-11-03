@@ -40,6 +40,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -76,9 +77,24 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
         LaunchedEffect(Unit) { onBack() }
         return
     }
-    DeviceScaffold(vm, device, onBack) {
+    // Luminária: abre o painel do próprio firmware (idêntico ao web). Os controles nativos do app
+    // ficam disponíveis no menu.
+    var nativeView by rememberSaveable { mutableStateOf(false) }
+    val altView = if (device.protocol == Protocol.LUMINARIA) {
+        (if (nativeView) "Ver painel da luminária" else "Ver controles do app") to { nativeView = !nativeView }
+    } else null
+    DeviceScaffold(vm, device, onBack, altView) {
         when (device.protocol) {
-            Protocol.LUMINARIA -> LuminariaContent(vm, device)
+            Protocol.LUMINARIA -> if (nativeView) {
+                LuminariaContent(vm, device)
+            } else {
+                // Pausa o polling do app enquanto o painel (que já faz o seu) está aberto.
+                DisposableEffect(device.id) {
+                    vm.pausePolling(device.id, true)
+                    onDispose { vm.pausePolling(device.id, false) }
+                }
+                DeviceWebPanel("http://${device.host}/")
+            }
             Protocol.PRP1 -> Column(
                 Modifier
                     .fillMaxSize()
@@ -93,7 +109,13 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
 /** Barra superior e menu comuns a todos os aparelhos (renomear, IP, painel web, remover). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeviceScaffold(vm: AppViewModel, device: Device, onBack: () -> Unit, content: @Composable () -> Unit) {
+private fun DeviceScaffold(
+    vm: AppViewModel,
+    device: Device,
+    onBack: () -> Unit,
+    altView: Pair<String, () -> Unit>?,
+    content: @Composable () -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var editingHost by remember { mutableStateOf(false) }
@@ -104,9 +126,13 @@ private fun DeviceScaffold(vm: AppViewModel, device: Device, onBack: () -> Unit,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(device.name, fontWeight = FontWeight.SemiBold)
-                        Text(device.deviceType.label, fontSize = 12.sp, color = ReefColors.Muted)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        DeviceIcon(device.deviceType, size = 36.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(device.name, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                            Text(device.deviceType.label, fontSize = 12.sp, color = ReefColors.Muted)
+                        }
                     }
                 },
                 navigationIcon = {
@@ -119,6 +145,9 @@ private fun DeviceScaffold(vm: AppViewModel, device: Device, onBack: () -> Unit,
                         Icon(Icons.Default.MoreVert, contentDescription = "Mais opções")
                     }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        altView?.let { (label, toggle) ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; toggle() })
+                        }
                         DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; renaming = true })
                         DropdownMenuItem(text = { Text("Alterar IP") }, onClick = { menu = false; editingHost = true })
                         DropdownMenuItem(text = { Text("Abrir painel web") }, onClick = {

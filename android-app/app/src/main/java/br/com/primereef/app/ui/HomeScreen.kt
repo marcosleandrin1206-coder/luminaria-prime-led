@@ -1,7 +1,12 @@
 package br.com.primereef.app.ui
 
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,14 +15,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -33,34 +44,61 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.widget.Toast
 import br.com.primereef.app.AppViewModel
+import br.com.primereef.app.R
 import br.com.primereef.app.data.Device
 import br.com.primereef.app.data.DeviceLive
-import br.com.primereef.app.data.ControlType
 import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.data.LedChannel
 import br.com.primereef.app.data.Level
 import br.com.primereef.app.data.Protocol
 import kotlinx.coroutines.launch
 
+/** Produto do catálogo Prime Reef Brasil exibido em "Adicionar produto". */
+data class Product(val type: DeviceType, val name: String, val description: String, val available: Boolean)
+
+val PRODUCTS = listOf(
+    Product(DeviceType.LUMINARIA, "Luminária Prime LED", "Iluminação marinha 4 canais", available = true),
+    Product(DeviceType.KH, "AquaPrime KH", "Medidor automático de KH", available = true),
+    Product(DeviceType.DOSADORA, "Dosadora", "Dosagem de suplementos", available = false),
+    Product(DeviceType.BOMBA, "Bomba / Wavemaker", "Circulação e retorno", available = false),
+    Product(DeviceType.ATO, "Reposição ATO", "Reposição de água doce", available = false),
+    Product(DeviceType.CONTROLADOR, "Controlador", "Tomadas, relés e termostato", available = false),
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: () -> Unit) {
+fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: (DeviceType?) -> Unit) {
     val devices by vm.devices.collectAsStateWithLifecycle()
     val live by vm.live.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val luminarias = devices.filter { it.protocol == Protocol.LUMINARIA }
+    // Ordem fixa por família de produto, depois por nome.
+    val sorted = devices.sortedWith(compareBy({ it.deviceType.ordinal }, { it.name }))
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Prime Reef Brasil", fontWeight = FontWeight.SemiBold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(R.drawable.logo_prime_reef),
+                            contentDescription = "Prime Reef",
+                            modifier = Modifier.size(44.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("Prime Reef Brasil", fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+                    }
+                },
                 actions = {
                     IconButton(onClick = { scope.launch { vm.refreshAll() } }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Atualizar")
@@ -69,41 +107,21 @@ fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: () -> Unit) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = ReefColors.Background),
             )
         },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAdd,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Adicionar") },
-            )
-        },
         containerColor = ReefColors.Background,
     ) { padding ->
-        if (devices.isEmpty()) {
-            EmptyState(Modifier.padding(padding), onAdd)
-            return@Scaffold
-        }
-        val sections = DeviceType.entries
-            .map { type -> type to devices.filter { it.deviceType == type } }
-            .filter { it.second.isNotEmpty() }
-        val luminarias = devices.filter { it.protocol == Protocol.LUMINARIA }
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp),
+            contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { OverviewCard(devices, live, onOpen) }
-            sections.forEach { (type, list) ->
-                item(key = "header-${type.key}") {
-                    Text(
-                        type.plural,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ReefColors.Muted,
-                        modifier = Modifier.padding(top = 8.dp, start = 4.dp),
-                    )
-                }
-                if (type == DeviceType.LUMINARIA && luminarias.size > 1) {
-                    item(key = "group-luminarias") {
+            if (devices.isNotEmpty()) {
+                fullWidth("overview") { OverviewCard(devices, live, onOpen) }
+                fullWidth("meus") { SectionTitle("Meus equipamentos") }
+                items(sorted, key = { it.id }) { d -> EquipmentTile(d, live[d.id]) { onOpen(d) } }
+                if (luminarias.size > 1) {
+                    fullWidth("group") {
                         GroupControlCard(
                             devices = luminarias,
                             live = live,
@@ -112,30 +130,121 @@ fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: () -> Unit) {
                         )
                     }
                 }
-                items(list, key = { it.id }) { d ->
-                    if (d.protocol == Protocol.LUMINARIA) DeviceCard(d, live[d.id]) { onOpen(d) }
-                    else GenericDeviceCard(d, live[d.id]) { onOpen(d) }
+            } else {
+                fullWidth("welcome") {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Image(
+                            painter = painterResource(R.drawable.logo_prime_reef),
+                            contentDescription = null,
+                            modifier = Modifier.size(96.dp),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text("Bem-vindo!", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        MutedText("Escolha abaixo o produto Prime Reef que você quer adicionar.")
+                    }
+                }
+            }
+
+            fullWidth("add-title") { SectionTitle("Adicionar produto Prime Reef") }
+            items(PRODUCTS, key = { "p-" + it.type.key }) { p -> ProductTile(p) { onAdd(p.type) } }
+            fullWidth("add-other") {
+                OutlinedButton(onClick = { onAdd(null) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Buscar todos os equipamentos na rede")
                 }
             }
         }
     }
 }
 
+private fun LazyGridScope.fullWidth(key: String, content: @Composable () -> Unit) {
+    item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
+}
+
 @Composable
-private fun EmptyState(modifier: Modifier, onAdd: () -> Unit) {
-    Column(
-        modifier.fillMaxSize().padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = ReefColors.Muted,
+        modifier = Modifier.padding(top = 8.dp, start = 2.dp),
+    )
+}
+
+@Composable
+private fun Tile(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().height(156.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = ReefColors.Card),
+        border = BorderStroke(1.dp, ReefColors.Border),
     ) {
-        Text("Nenhum aparelho adicionado", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        MutedText(
-            "Conecte o celular no mesmo Wi-Fi dos seus aparelhos Prime Reef (luminárias, dosadoras, " +
-                "bombas, ATO, controladores...) e toque em Adicionar para buscá-los automaticamente.",
-        )
-        Spacer(Modifier.height(16.dp))
-        OutlinedButton(onClick = onAdd) { Text("Buscar aparelhos") }
+        Box(Modifier.fillMaxSize().padding(14.dp)) { content() }
+    }
+}
+
+/** Quadro de um equipamento: ícone, nome e o status mais importante. */
+@Composable
+private fun EquipmentTile(device: Device, live: DeviceLive?, onClick: () -> Unit) {
+    val online = live?.online == true
+    val (line, lineColor) = statusLine(device, live)
+    val alarm = live?.state?.alerts?.maxOfOrNull { it.level }
+    Tile(onClick) {
+        Column(Modifier.fillMaxSize()) {
+            Row(verticalAlignment = Alignment.Top) {
+                DeviceIcon(device.deviceType, size = 52.dp, dimmed = live != null && !online)
+                Spacer(Modifier.weight(1f))
+                if (alarm != null && alarm >= Level.WARN) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(levelColor(alarm)))
+                    Spacer(Modifier.width(6.dp))
+                }
+                StatusDot(online)
+            }
+            Spacer(Modifier.weight(1f))
+            Text(device.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(device.deviceType.label, fontSize = 11.sp, color = ReefColors.Muted, maxLines = 1)
+            Spacer(Modifier.height(4.dp))
+            Text(line, fontSize = 12.sp, color = lineColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+private fun statusLine(device: Device, live: DeviceLive?): Pair<String, androidx.compose.ui.graphics.Color> {
+    if (live == null) return "Conectando..." to ReefColors.Muted
+    if (!live.online && live.status == null && live.state == null) return "Sem resposta" to ReefColors.Error
+    val offline = if (!live.online) "Offline · " else ""
+    live.status?.let { s ->
+        val avg = s.levels.values.average().toInt()
+        val mode = if (s.manual) "Manual" else "Programa"
+        return "$offline${s.time} · $mode · ${avg}%" to (if (s.manual) ReefColors.Warn else ReefColors.Text)
+    }
+    live.state?.let { st ->
+        st.alerts.firstOrNull { it.level == Level.ALARM || it.level == Level.WARN }?.let {
+            return "$offline${it.message}" to levelColor(it.level)
+        }
+        st.sensors.firstOrNull()?.let {
+            return "$offline${it.label}: ${it.value} ${it.unit}".trim() to levelColor(it.status)
+        }
+        return "$offline${st.controls.size} controles" to ReefColors.Muted
+    }
+    return "Offline" to ReefColors.Error
+}
+
+/** Quadro do catálogo de produtos Prime Reef. */
+@Composable
+private fun ProductTile(p: Product, onClick: () -> Unit) {
+    Tile(onClick) {
+        Column(Modifier.fillMaxSize()) {
+            Row(verticalAlignment = Alignment.Top) {
+                DeviceIcon(p.type, size = 52.dp, dimmed = !p.available)
+                Spacer(Modifier.weight(1f))
+                if (!p.available) Badge("Em breve", ReefColors.Muted)
+            }
+            Spacer(Modifier.weight(1f))
+            Text(p.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(p.description, fontSize = 12.sp, color = ReefColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -153,12 +262,12 @@ private fun OverviewCard(devices: List<Device>, live: Map<String, DeviceLive>, o
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Meu aquário", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                MutedText("$online de ${devices.size} aparelhos online")
+                MutedText("$online de ${devices.size} equipamentos online")
             }
             when {
                 alerts.any { it.second.level == Level.ALARM } -> Badge("Alarme", ReefColors.Error)
                 alerts.isNotEmpty() || offline.isNotEmpty() -> Badge("Atenção", ReefColors.Warn)
-                devices.isNotEmpty() && online == devices.size -> Badge("Tudo certo", ReefColors.Ok)
+                online == devices.size -> Badge("Tudo certo", ReefColors.Ok)
             }
         }
         if (alerts.isNotEmpty() || offline.isNotEmpty()) Spacer(Modifier.height(8.dp))
@@ -177,54 +286,6 @@ private fun OverviewCard(devices: List<Device>, live: Map<String, DeviceLive>, o
                 color = ReefColors.Muted,
                 modifier = Modifier.clickable { onOpen(d) }.padding(vertical = 2.dp),
             )
-        }
-    }
-}
-
-/** Cartão de um aparelho do Protocolo Prime Reef v1: mostra sensores e controles principais. */
-@Composable
-private fun GenericDeviceCard(device: Device, live: DeviceLive?, onClick: () -> Unit) {
-    val state = live?.state
-    val online = live?.online == true
-    ReefCard(Modifier.clickable(onClick = onClick)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusDot(online)
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(device.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                MutedText("${device.deviceType.label} · ${device.host}")
-            }
-            val worst = state?.alerts?.maxOfOrNull { it.level }
-            if (worst == Level.ALARM || worst == Level.WARN) {
-                Badge(if (worst == Level.ALARM) "Alarme" else "Atenção", levelColor(worst))
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        when {
-            live == null -> MutedText("Conectando...")
-            state == null -> MutedText("Sem resposta. Verifique se o aparelho está ligado e na mesma rede.")
-            else -> {
-                if (!online) {
-                    Badge("Offline", ReefColors.Error)
-                    Spacer(Modifier.height(6.dp))
-                }
-                SensorGrid(state.sensors.take(4))
-                val switches = state.controls.filter { it.type == ControlType.SWITCH }.take(3)
-                if (switches.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        switches.forEach { c ->
-                            Badge(
-                                "${c.label}: ${if (c.boolValue) "ligado" else "desligado"}",
-                                if (c.boolValue) ReefColors.Ok else ReefColors.Muted,
-                            )
-                        }
-                    }
-                }
-                if (state.sensors.isEmpty() && switches.isEmpty()) {
-                    MutedText("${state.controls.size} controles disponíveis")
-                }
-            }
         }
     }
 }
@@ -266,45 +327,6 @@ private fun GroupControlCard(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = online.isNotEmpty(),
             ) { Text("Voltar todas ao programa") }
-        }
-    }
-}
-
-@Composable
-private fun DeviceCard(device: Device, live: DeviceLive?, onClick: () -> Unit) {
-    val status = live?.status
-    val online = live?.online == true
-    ReefCard(Modifier.clickable(onClick = onClick)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusDot(online)
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(device.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                MutedText(device.host)
-            }
-            if (status != null) {
-                Text(status.time, fontSize = 20.sp, fontWeight = FontWeight.Light)
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        when {
-            live == null -> MutedText("Conectando...")
-            !online && status == null -> MutedText("Sem resposta. Verifique se a luminária está ligada e na mesma rede.")
-            else -> {
-                LevelBars(status?.levels)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (!online) Badge("Offline", ReefColors.Error)
-                    if (status?.manual == true) Badge("Manual · ${status.manualMinutesLeft} min", ReefColors.Warn)
-                    else if (status != null) Badge("Programa", ReefColors.Accent)
-                    if (status != null) {
-                        Badge(
-                            if (status.cooler) "Cooler ligado" else "Cooler desligado",
-                            if (status.cooler) ReefColors.Ok else ReefColors.Muted,
-                        )
-                    }
-                }
-            }
         }
     }
 }

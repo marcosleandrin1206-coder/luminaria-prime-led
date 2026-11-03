@@ -52,6 +52,7 @@ Veja o exemplo completo em [`examples/Dosadora`](examples/Dosadora/Dosadora.ino)
 | Tipo (`type`) | Aparelho |
 |---|---|
 | `luminaria` | Iluminação |
+| `kh` | Medidor de KH (AquaPrime KH) |
 | `dosadora` | Dosadoras |
 | `bomba` | Circulação / wavemaker / retorno |
 | `ato` | Reposição automática |

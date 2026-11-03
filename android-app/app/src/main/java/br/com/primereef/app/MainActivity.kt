@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.ui.AddDeviceScreen
 import br.com.primereef.app.ui.DeviceScreen
 import br.com.primereef.app.ui.HomeScreen
@@ -22,11 +23,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             PrimeReefTheme {
-                // Navegação simples: "home", "add" ou "device:<id>".
+                // Navegação simples: "home", "add", "add:<tipo>" ou "device:<id>".
                 var route by rememberSaveable { mutableStateOf("home") }
                 BackHandler(enabled = route != "home") { route = "home" }
                 when {
-                    route == "add" -> AddDeviceScreen(vm, onBack = { route = "home" })
+                    route.startsWith("add") -> AddDeviceScreen(
+                        vm = vm,
+                        productType = route.substringAfter("add:", "").ifBlank { null }?.let { DeviceType.of(it) },
+                        onBack = { route = "home" },
+                    )
                     route.startsWith("device:") -> DeviceScreen(
                         vm = vm,
                         deviceId = route.removePrefix("device:"),
@@ -35,7 +40,7 @@ class MainActivity : ComponentActivity() {
                     else -> HomeScreen(
                         vm = vm,
                         onOpen = { route = "device:${it.id}" },
-                        onAdd = { route = "add" },
+                        onAdd = { type -> route = if (type == null) "add" else "add:${type.key}" },
                     )
                 }
             }

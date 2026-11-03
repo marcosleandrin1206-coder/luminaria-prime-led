@@ -31,6 +31,7 @@ mas não obrigatório.
 | `type` | Uso |
 |---|---|
 | `luminaria` | Iluminação |
+| `kh` | Medidor de KH (AquaPrime KH) |
 | `dosadora` | Bombas dosadoras |
 | `bomba` | Circulação, wavemaker, retorno |
 | `ato` | Reposição automática de água |
