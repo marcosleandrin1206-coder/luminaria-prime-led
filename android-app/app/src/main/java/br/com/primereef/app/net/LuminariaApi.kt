@@ -5,16 +5,11 @@ import br.com.primereef.app.data.LedChannel
 import br.com.primereef.app.data.LightStatus
 import br.com.primereef.app.data.Peer
 import br.com.primereef.app.data.Schedule
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 
 /**
- * Cliente da API HTTP embarcada no firmware da luminária Prime Reef Brasil (ESP32, porta 80).
+ * Cliente da API HTTP própria do firmware atual da luminária Prime Reef Brasil (ESP32, porta 80).
  *
  * Endpoints mapeados a partir do firmware:
  *  GET  /status                -> {"b","az","w","u","t","manual","ml","cooler"}
@@ -27,9 +22,7 @@ import java.net.URLEncoder
  *  POST /creategroup (text/plain: hosts separados por vírgula)
  *  GET  /checkupdate, /checkupdate_group
  */
-class PrimeReefApi(host: String, private val timeoutMs: Int = 4000) {
-
-    private val base = if (host.startsWith("http")) host.trimEnd('/') else "http://$host"
+class LuminariaApi(private val host: String, private val timeoutMs: Int = 4000) {
 
     suspend fun status(): LightStatus = parseStatus(JSONObject(get("/status")))
 
@@ -123,28 +116,7 @@ class PrimeReefApi(host: String, private val timeoutMs: Int = 4000) {
         method: String,
         body: String?,
         timeout: Int = timeoutMs,
-    ): String = withContext(Dispatchers.IO) {
-        val conn = URL(base + path).openConnection() as HttpURLConnection
-        conn.connectTimeout = minOf(timeout, 5000)
-        conn.readTimeout = timeout
-        conn.requestMethod = method
-        conn.useCaches = false
-        conn.instanceFollowRedirects = false
-        try {
-            if (body != null) {
-                conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "text/plain")
-                conn.outputStream.use { it.write(body.toByteArray()) }
-            }
-            val code = conn.responseCode
-            val stream = if (code >= 400) conn.errorStream else conn.inputStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (code >= 400) throw IOException("HTTP $code")
-            text
-        } finally {
-            conn.disconnect()
-        }
-    }
+    ): String = Http.request(host, path, method, body, timeout)
 
     companion object {
         private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")

@@ -8,9 +8,14 @@ import br.com.primereef.app.data.DeviceLive
 import br.com.primereef.app.data.DeviceRepository
 import br.com.primereef.app.data.FoundDevice
 import br.com.primereef.app.data.LedChannel
+import br.com.primereef.app.data.DeviceType
+import br.com.primereef.app.data.GenericState
+import br.com.primereef.app.data.Protocol
 import br.com.primereef.app.data.Schedule
+import br.com.primereef.app.net.DeviceApi
+import br.com.primereef.app.net.HttpStatusException
 import br.com.primereef.app.net.Discovery
-import br.com.primereef.app.net.PrimeReefApi
+import br.com.primereef.app.net.LuminariaApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -48,7 +53,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var pollJob: Job? = null
     private var discoveryJob: Job? = null
 
-    fun api(device: Device) = PrimeReefApi(device.host)
+    /** API própria da luminária (firmware atual). */
+    fun api(device: Device) = LuminariaApi(device.host)
+
+    /** API do Protocolo Prime Reef v1 (aparelhos novos). */
+    fun deviceApi(device: Device) = DeviceApi(device.host)
 
     // ---------- Polling ----------
 
@@ -71,14 +80,51 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun refresh(d: Device) {
-        val result = runCatching { PrimeReefApi(d.host, timeoutMs = 2500).status() }
+        when (d.protocol) {
+            Protocol.LUMINARIA -> {
+                val result = runCatching { LuminariaApi(d.host, timeoutMs = 2500).status() }
+                _live.update { map ->
+                    val prev = map[d.id]
+                    map + (d.id to DeviceLive(
+                        status = result.getOrNull() ?: prev?.status,
+                        online = result.isSuccess,
+                        updatedAt = System.currentTimeMillis(),
+                    ))
+                }
+            }
+            Protocol.PRP1 -> {
+                val result = runCatching { DeviceApi(d.host, timeoutMs = 2500).state() }
+                updateGeneric(d, result.getOrNull(), result.isSuccess)
+            }
+        }
+    }
+
+    private fun updateGeneric(d: Device, state: GenericState?, online: Boolean) {
         _live.update { map ->
             val prev = map[d.id]
             map + (d.id to DeviceLive(
-                status = result.getOrNull() ?: prev?.status,
-                online = result.isSuccess,
+                status = null,
+                state = state ?: prev?.state,
+                online = online,
                 updatedAt = System.currentTimeMillis(),
             ))
+        }
+    }
+
+    // ---------- Aparelhos genéricos (Protocolo Prime Reef v1) ----------
+
+    /** Altera um controle de um aparelho PRP1 e atualiza o estado com a resposta. */
+    fun setControl(device: Device, controlId: String, value: String, onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            runCatching { deviceApi(device).set(controlId, value) }
+                .onSuccess { state -> if (state != null) updateGeneric(device, state, true) else refresh(device) }
+                .onFailure { e ->
+                    val msg = (e as? HttpStatusException)?.body
+                        ?.let { runCatching { org.json.JSONObject(it).optString("error") }.getOrNull() }
+                        ?.ifBlank { null }
+                    onError(msg ?: "Falha ao enviar comando (${e.message})")
+                    refresh(device)
+                }
         }
     }
 
@@ -146,26 +192,50 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .awaitAll().count { it }
     }
 
-    // ---------- Gerenciamento de luminárias ----------
+    // ---------- Gerenciamento de aparelhos ----------
 
-    fun addDevice(found: FoundDevice) {
+    fun isAdded(found: FoundDevice) =
+        _devices.value.any { it.host == found.host || (found.id != null && it.id == found.id) }
+
+    fun addDevice(found: FoundDevice, customName: String? = null) {
         viewModelScope.launch {
-            val number = runCatching { PrimeReefApi(found.host).groupNumber() }.getOrDefault(0)
-            val existing = _devices.value.firstOrNull { it.id == found.name || it.host == found.host }
+            val existing = _devices.value.firstOrNull {
+                (found.id != null && it.id == found.id) || it.host == found.host
+            }
+            val number = if (found.protocol == Protocol.LUMINARIA) {
+                runCatching { LuminariaApi(found.host).groupNumber() }.getOrDefault(0)
+            } else 0
             val name = when {
+                !customName.isNullOrBlank() -> customName.trim()
                 existing != null -> existing.name
                 number > 0 -> "Luminária $number"
                 else -> found.name
             }
-            val id = existing?.id ?: if (found.source == "mDNS") found.name else found.host
-            upsert(Device(id = id, name = name, host = found.host))
+            upsert(
+                Device(
+                    id = existing?.id ?: found.id ?: found.host,
+                    name = name,
+                    host = found.host,
+                    type = found.type,
+                    protocol = found.protocol,
+                ),
+            )
         }
     }
 
-    fun addManual(host: String, name: String) {
+    /** Adiciona pelo IP, identificando antes que tipo de aparelho é. */
+    fun addManual(host: String, name: String, onResult: (String) -> Unit) {
         val h = host.trim().removePrefix("http://").trimEnd('/')
         if (h.isEmpty()) return
-        addDevice(FoundDevice(h, name.ifBlank { h }, "manual"))
+        viewModelScope.launch {
+            val found = Discovery.identify(h, "manual", 5000)
+            if (found == null) {
+                onResult("Nenhum aparelho Prime Reef respondeu em $h")
+            } else {
+                addDevice(found, name)
+                onResult("${DeviceType.of(found.type).label} adicionada(o): ${name.ifBlank { found.name }}")
+            }
+        }
     }
 
     fun rename(device: Device, name: String) {
@@ -209,9 +279,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             scanned.forEach { addFound(it) }
             mdnsJob.join()
-            // Atualiza o IP das luminárias salvas que mudaram de endereço (encontradas pelo nome mDNS).
+            // Atualiza o IP dos aparelhos salvos que mudaram de endereço (reconhecidos pelo id).
             _discovery.value.found.forEach { f ->
-                _devices.value.firstOrNull { it.id == f.name && it.host != f.host }
+                _devices.value.firstOrNull { f.id != null && it.id == f.id && it.host != f.host }
                     ?.let { upsert(it.copy(host = f.host)) }
             }
             _discovery.update {
@@ -219,8 +289,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     running = false,
                     progress = 1f,
                     message = when {
-                        discovery.localIpv4() == null -> "Conecte o celular ao Wi-Fi para buscar luminárias."
-                        it.found.isEmpty() -> "Nenhuma luminária encontrada nesta rede."
+                        discovery.localIpv4() == null -> "Conecte o celular ao Wi-Fi para buscar aparelhos."
+                        it.found.isEmpty() -> "Nenhum aparelho Prime Reef encontrado nesta rede."
                         else -> null
                     },
                 )
@@ -233,7 +303,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val existing = s.found.indexOfFirst { it.host == f.host }
             val list = when {
                 existing < 0 -> s.found + f
-                f.source == "mDNS" -> s.found.toMutableList().also { it[existing] = f } // nome melhor
+                f.source == "mDNS" -> s.found.toMutableList().also { it[existing] = f } // traz o id/nome mDNS
                 else -> s.found
             }
             s.copy(found = list)

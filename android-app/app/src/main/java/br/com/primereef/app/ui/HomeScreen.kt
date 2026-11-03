@@ -42,7 +42,11 @@ import android.widget.Toast
 import br.com.primereef.app.AppViewModel
 import br.com.primereef.app.data.Device
 import br.com.primereef.app.data.DeviceLive
+import br.com.primereef.app.data.ControlType
+import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.data.LedChannel
+import br.com.primereef.app.data.Level
+import br.com.primereef.app.data.Protocol
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,23 +82,40 @@ fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: () -> Unit) {
             EmptyState(Modifier.padding(padding), onAdd)
             return@Scaffold
         }
+        val sections = DeviceType.entries
+            .map { type -> type to devices.filter { it.deviceType == type } }
+            .filter { it.second.isNotEmpty() }
+        val luminarias = devices.filter { it.protocol == Protocol.LUMINARIA }
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (devices.size > 1) {
-                item {
-                    GroupControlCard(
-                        devices = devices,
-                        live = live,
-                        vm = vm,
-                        onToast = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+            item { OverviewCard(devices, live, onOpen) }
+            sections.forEach { (type, list) ->
+                item(key = "header-${type.key}") {
+                    Text(
+                        type.plural,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ReefColors.Muted,
+                        modifier = Modifier.padding(top = 8.dp, start = 4.dp),
                     )
                 }
-            }
-            items(devices, key = { it.id }) { d ->
-                DeviceCard(d, live[d.id]) { onOpen(d) }
+                if (type == DeviceType.LUMINARIA && luminarias.size > 1) {
+                    item(key = "group-luminarias") {
+                        GroupControlCard(
+                            devices = luminarias,
+                            live = live,
+                            vm = vm,
+                            onToast = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+                        )
+                    }
+                }
+                items(list, key = { it.id }) { d ->
+                    if (d.protocol == Protocol.LUMINARIA) DeviceCard(d, live[d.id]) { onOpen(d) }
+                    else GenericDeviceCard(d, live[d.id]) { onOpen(d) }
+                }
             }
         }
     }
@@ -107,11 +128,104 @@ private fun EmptyState(modifier: Modifier, onAdd: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Nenhuma luminária adicionada", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text("Nenhum aparelho adicionado", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
-        MutedText("Conecte o celular no mesmo Wi-Fi das luminárias e toque em Adicionar para buscá-las automaticamente.")
+        MutedText(
+            "Conecte o celular no mesmo Wi-Fi dos seus aparelhos Prime Reef (luminárias, dosadoras, " +
+                "bombas, ATO, controladores...) e toque em Adicionar para buscá-los automaticamente.",
+        )
         Spacer(Modifier.height(16.dp))
-        OutlinedButton(onClick = onAdd) { Text("Buscar luminárias") }
+        OutlinedButton(onClick = onAdd) { Text("Buscar aparelhos") }
+    }
+}
+
+/** Resumo do aquário: aparelhos online e alertas ativos de todo o ecossistema. */
+@Composable
+private fun OverviewCard(devices: List<Device>, live: Map<String, DeviceLive>, onOpen: (Device) -> Unit) {
+    val online = devices.count { live[it.id]?.online == true }
+    val offline = devices.filter { live[it.id]?.online == false }
+    val alerts = devices.flatMap { d ->
+        live[d.id]?.state?.alerts.orEmpty()
+            .filter { it.level == Level.WARN || it.level == Level.ALARM }
+            .map { d to it }
+    }
+    ReefCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Meu aquário", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                MutedText("$online de ${devices.size} aparelhos online")
+            }
+            when {
+                alerts.any { it.second.level == Level.ALARM } -> Badge("Alarme", ReefColors.Error)
+                alerts.isNotEmpty() || offline.isNotEmpty() -> Badge("Atenção", ReefColors.Warn)
+                devices.isNotEmpty() && online == devices.size -> Badge("Tudo certo", ReefColors.Ok)
+            }
+        }
+        if (alerts.isNotEmpty() || offline.isNotEmpty()) Spacer(Modifier.height(8.dp))
+        alerts.forEach { (d, a) ->
+            Text(
+                "• ${d.name}: ${a.message}",
+                fontSize = 13.sp,
+                color = levelColor(a.level),
+                modifier = Modifier.clickable { onOpen(d) }.padding(vertical = 2.dp),
+            )
+        }
+        offline.forEach { d ->
+            Text(
+                "• ${d.name}: sem resposta",
+                fontSize = 13.sp,
+                color = ReefColors.Muted,
+                modifier = Modifier.clickable { onOpen(d) }.padding(vertical = 2.dp),
+            )
+        }
+    }
+}
+
+/** Cartão de um aparelho do Protocolo Prime Reef v1: mostra sensores e controles principais. */
+@Composable
+private fun GenericDeviceCard(device: Device, live: DeviceLive?, onClick: () -> Unit) {
+    val state = live?.state
+    val online = live?.online == true
+    ReefCard(Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StatusDot(online)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(device.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                MutedText("${device.deviceType.label} · ${device.host}")
+            }
+            val worst = state?.alerts?.maxOfOrNull { it.level }
+            if (worst == Level.ALARM || worst == Level.WARN) {
+                Badge(if (worst == Level.ALARM) "Alarme" else "Atenção", levelColor(worst))
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        when {
+            live == null -> MutedText("Conectando...")
+            state == null -> MutedText("Sem resposta. Verifique se o aparelho está ligado e na mesma rede.")
+            else -> {
+                if (!online) {
+                    Badge("Offline", ReefColors.Error)
+                    Spacer(Modifier.height(6.dp))
+                }
+                SensorGrid(state.sensors.take(4))
+                val switches = state.controls.filter { it.type == ControlType.SWITCH }.take(3)
+                if (switches.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        switches.forEach { c ->
+                            Badge(
+                                "${c.label}: ${if (c.boolValue) "ligado" else "desligado"}",
+                                if (c.boolValue) ReefColors.Ok else ReefColors.Muted,
+                            )
+                        }
+                    }
+                }
+                if (state.sensors.isEmpty() && switches.isEmpty()) {
+                    MutedText("${state.controls.size} controles disponíveis")
+                }
+            }
+        }
     }
 }
 

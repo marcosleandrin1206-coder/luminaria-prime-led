@@ -1,11 +1,38 @@
 package br.com.primereef.app.data
 
-/** Uma luminária salva no app. [id] é estável (nome mDNS ou IP); [host] pode mudar com o DHCP. */
+/** Como o app conversa com o aparelho. */
+enum class Protocol {
+    /** Firmware atual da luminária (/status, /live, /schedule...): tela especializada. */
+    LUMINARIA,
+    /** Protocolo Prime Reef v1 (/api/info, /api/state, /api/set): tela montada a partir do aparelho. */
+    PRP1,
+}
+
+/** Famílias de aparelhos do ecossistema Prime Reef Brasil. */
+enum class DeviceType(val key: String, val label: String, val plural: String) {
+    LUMINARIA("luminaria", "Luminária", "Iluminação"),
+    DOSADORA("dosadora", "Dosadora", "Dosadoras"),
+    BOMBA("bomba", "Bomba", "Bombas e circulação"),
+    ATO("ato", "Reposição (ATO)", "Reposição de água"),
+    CONTROLADOR("controlador", "Controlador", "Controladores"),
+    SENSOR("sensor", "Sensor", "Sensores e monitores"),
+    OUTRO("outro", "Dispositivo", "Outros dispositivos");
+
+    companion object {
+        fun of(key: String?): DeviceType = entries.firstOrNull { it.key == key } ?: OUTRO
+    }
+}
+
+/** Um aparelho salvo no app. [id] é estável (id do aparelho, nome mDNS ou IP); [host] pode mudar com o DHCP. */
 data class Device(
     val id: String,
     val name: String,
     val host: String,
-)
+    val type: String = DeviceType.LUMINARIA.key,
+    val protocol: Protocol = Protocol.LUMINARIA,
+) {
+    val deviceType: DeviceType get() = DeviceType.of(type)
+}
 
 /** Canais de LED da luminária, com a chave usada pelo firmware em /live, /preview e /status. */
 enum class LedChannel(val key: String, val label: String, val color: Long) {
@@ -37,12 +64,79 @@ data class Peer(val host: String, val number: Int)
 
 data class FoundPeer(val host: String, val paired: Boolean)
 
-/** Luminária encontrada na busca da rede. */
-data class FoundDevice(val host: String, val name: String, val source: String)
+/** Aparelho encontrado na busca da rede. */
+data class FoundDevice(
+    val host: String,
+    val name: String,
+    val source: String,
+    val type: String = DeviceType.LUMINARIA.key,
+    val protocol: Protocol = Protocol.LUMINARIA,
+    /** id informado pelo próprio aparelho (PRP1) ou nome mDNS; null = usar o IP. */
+    val id: String? = null,
+)
 
-/** Estado "ao vivo" de cada luminária, atualizado pelo polling. */
+// ---------- Protocolo Prime Reef v1 (ver docs/PROTOCOLO.md) ----------
+
+data class DeviceInfo(
+    val api: Int,
+    val id: String,
+    val type: String,
+    val model: String,
+    val name: String,
+    val fw: String,
+)
+
+enum class Level { OK, INFO, WARN, ALARM;
+    companion object {
+        fun of(s: String?): Level = when (s?.lowercase()) {
+            "warn" -> WARN
+            "alarm" -> ALARM
+            "info" -> INFO
+            else -> OK
+        }
+    }
+}
+
+data class Sensor(
+    val id: String,
+    val label: String,
+    val value: String,
+    val unit: String,
+    val status: Level,
+)
+
+enum class ControlType { SWITCH, SLIDER, NUMBER, SELECT, BUTTON, UNKNOWN }
+
+data class Control(
+    val id: String,
+    val label: String,
+    val type: ControlType,
+    val value: String?,
+    val min: Double,
+    val max: Double,
+    val step: Double,
+    val unit: String,
+    val options: List<String>,
+    val confirm: String?,
+) {
+    val boolValue: Boolean get() = value == "true" || value == "1"
+    val numValue: Double get() = value?.toDoubleOrNull() ?: min
+}
+
+data class Alert(val level: Level, val message: String)
+
+data class GenericState(
+    val sensors: List<Sensor>,
+    val controls: List<Control>,
+    val alerts: List<Alert>,
+)
+
+/** Estado "ao vivo" de cada aparelho, atualizado pelo polling. */
 data class DeviceLive(
+    /** Preenchido para luminárias (protocolo LUMINARIA). */
     val status: LightStatus?,
+    /** Preenchido para aparelhos PRP1. */
+    val state: GenericState? = null,
     val online: Boolean,
     val updatedAt: Long,
 )

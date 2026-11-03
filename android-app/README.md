@@ -1,24 +1,35 @@
 # App Android — Prime Reef Brasil
 
-Aplicativo Android para controlar **todas as luminárias Prime Reef Brasil** da casa em um só lugar.
-Ele conversa direto com o servidor HTTP do firmware de cada luminária pela rede Wi-Fi local
-(não precisa de nuvem nem de conta).
+Aplicativo Android para controlar **todo o ecossistema Prime Reef Brasil** em um só lugar:
+luminárias, dosadoras, bombas, reposição (ATO), controladores e sensores.
+Ele conversa direto com cada aparelho pela rede Wi-Fi local (não precisa de nuvem nem de conta).
+
+## Como o app suporta aparelhos que ainda nem existem
+
+Todo aparelho novo segue o [Protocolo Prime Reef v1](../docs/PROTOCOLO.md): ele informa ao app
+quais sensores, controles e alertas tem, e o app **monta a tela automaticamente**. Para lançar
+uma dosadora, wavemaker ou ATO novo, basta o firmware usar a biblioteca
+[`firmware-sdk/PrimeReefDevice`](../firmware-sdk/PrimeReefDevice). Não é preciso atualizar o app.
+
+A luminária atual (firmware v9) usa a API própria dela e tem uma tela especializada.
 
 ## Funcionalidades
 
-- **Descoberta automática** das luminárias na rede (mDNS `_primereef._tcp` + varredura da sub-rede),
-  ou adição manual pelo IP.
-- **Painel geral** com o status ao vivo de cada luminária: relógio, níveis dos 4 canais
-  (Azul Royal, Azul, Branco, UV), modo manual/programa e cooler.
-- **Controle de todas ao mesmo tempo**: sliders que ajustam todas as luminárias online juntas e
-  botão para voltar todas ao programa.
+- **Descoberta automática** de todos os aparelhos na rede (mDNS `_primereef._tcp` + varredura da
+  sub-rede), identificando o tipo de cada um, ou adição manual pelo IP.
+- **Meu aquário**: resumo com aparelhos online e alertas ativos de todo o ecossistema
+  (ex.: galão da dosadora acabando, reservatório do ATO vazio, aparelho offline).
+- Aparelhos **agrupados por tipo** (Iluminação, Dosadoras, Bombas, Reposição, Controladores, Sensores).
+- **Aparelhos do Protocolo Prime Reef**: leituras, alertas e controles (liga/desliga, sliders,
+  números, listas de opções e botões de ação com confirmação) gerados a partir do aparelho.
+- **Controle de todas as luminárias ao mesmo tempo** e botão para voltar todas ao programa.
 - Por luminária:
   - **Controle** manual com pré-visualização em tempo real enquanto arrasta o slider.
   - **Programação**: horário de ligar/desligar, intensidade máxima por canal e gráfico da curva do dia
     (mesma rampa de 60 min do firmware). Opção de salvar o mesmo programa em todas.
   - **Grupo**: ver/remover luminárias pareadas, buscar novas e criar grupo, sair do grupo.
   - **Sistema**: atualização remota de firmware (da luminária ou do grupo inteiro) e atalho para o painel web.
-- Guia para configurar uma luminária nova (modo ponto de acesso, `192.168.4.1`).
+- Guia para configurar um aparelho novo (modo ponto de acesso, `192.168.4.1`).
 
 ## Como obter o APK
 
@@ -36,7 +47,15 @@ cd android-app
 # APK em app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## API do firmware usada
+## Testando sem hardware
+
+```bash
+python3 tools/simulador.py --tipo todos   # dosadora:8080, bomba:8081, ato:8082, sensor:8083
+```
+
+No app: *Adicionar → Adicionar pelo IP →* `<ip-do-computador>:8080`.
+
+## API própria da luminária (firmware atual)
 
 | Endpoint | Uso |
 |---|---|

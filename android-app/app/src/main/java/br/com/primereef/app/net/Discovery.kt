@@ -5,7 +5,9 @@ import android.net.ConnectivityManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
+import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.data.FoundDevice
+import br.com.primereef.app.data.Protocol
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -24,9 +26,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
 
 /**
- * Encontra luminárias na rede local de duas formas:
- *  1. mDNS/NSD: o firmware anuncia o serviço "_primereef._tcp" (hostname reef-xxxxxx.local).
- *  2. Varredura da sub-rede /24 testando GET /status em cada IP (fallback quando o mDNS falha).
+ * Encontra aparelhos Prime Reef na rede local de duas formas:
+ *  1. mDNS/NSD: todo aparelho anuncia o serviço "_primereef._tcp".
+ *  2. Varredura da sub-rede /24 (fallback quando o mDNS falha).
+ * Cada endereço encontrado passa por [identify], que descobre o tipo e o protocolo do aparelho.
  */
 class Discovery(private val context: Context) {
 
@@ -58,9 +61,10 @@ class Discovery(private val context: Context) {
                 val resolved = withTimeoutOrNull(5000) { resolve(nsd, info) } ?: continue
                 @Suppress("DEPRECATION")
                 val addr = resolved.host
-                if (addr is Inet4Address) {
-                    send(FoundDevice(addr.hostAddress.orEmpty(), resolved.serviceName, "mDNS"))
-                }
+                val ip = (addr as? Inet4Address)?.hostAddress ?: continue
+                val found = identify(ip, "mDNS", 3000) ?: continue
+                // Firmware antigo da luminária não informa id: usa o nome mDNS (reef-xxxxxx).
+                send(if (found.id == null) found.copy(name = resolved.serviceName, id = resolved.serviceName) else found)
             }
         }
 
@@ -103,17 +107,57 @@ class Discovery(private val context: Context) {
             async(Dispatchers.IO) {
                 gate.withPermit {
                     val ip = "$prefix.$i"
-                    val ok = ip != self && PrimeReefApi(ip, timeoutMs = 900).probe()
+                    val found = if (ip != self) identify(ip, "rede", 900) else null
                     onProgress(done.incrementAndGet(), 254)
-                    if (ok) FoundDevice(ip, "Luminária $ip", "rede") else null
+                    found
                 }
             }
         }.awaitAll().filterNotNull()
     }
 
     companion object {
+        /**
+         * Descobre se [host] é um aparelho Prime Reef e qual protocolo usar:
+         *  - responde /api/info -> Protocolo Prime Reef v1 (exceto luminária, que mantém a tela própria)
+         *  - responde /status no formato da luminária -> firmware atual da luminária
+         */
+        suspend fun identify(host: String, source: String, timeoutMs: Int = 3000): FoundDevice? {
+            val info = try {
+                DeviceApi(host, timeoutMs).info()
+            } catch (e: HttpStatusException) {
+                null // o aparelho existe mas não tem /api: pode ser a luminária atual
+            } catch (e: org.json.JSONException) {
+                null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return null // sem resposta: não há aparelho nesse IP
+            }
+            val isLuminaria = (info == null || info.type == DeviceType.LUMINARIA.key) &&
+                LuminariaApi(host, timeoutMs).probe()
+            return when {
+                isLuminaria -> FoundDevice(
+                    host = host,
+                    name = info?.name?.ifBlank { null } ?: "Luminária $host",
+                    source = source,
+                    type = DeviceType.LUMINARIA.key,
+                    protocol = Protocol.LUMINARIA,
+                    id = info?.id?.ifBlank { null },
+                )
+                info != null -> FoundDevice(
+                    host = host,
+                    name = info.name.ifBlank { info.model }.ifBlank { DeviceType.of(info.type).label },
+                    source = source,
+                    type = info.type,
+                    protocol = Protocol.PRP1,
+                    id = info.id.ifBlank { null },
+                )
+                else -> null
+            }
+        }
+
         const val SERVICE_TYPE = "_primereef._tcp"
-        /** IP da luminária quando ela está em modo ponto de acesso (configuração inicial). */
+        /** IP do aparelho quando está em modo ponto de acesso (configuração inicial). */
         const val AP_IP = "192.168.4.1"
     }
 }

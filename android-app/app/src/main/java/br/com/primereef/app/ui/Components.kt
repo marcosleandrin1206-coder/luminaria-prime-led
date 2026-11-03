@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.primereef.app.data.LedChannel
+import br.com.primereef.app.data.Level
+import br.com.primereef.app.data.Sensor
 import br.com.primereef.app.data.Schedule
 import java.util.Calendar
 
@@ -241,4 +243,37 @@ fun ScheduleChart(schedule: Schedule, modifier: Modifier = Modifier) {
 @Composable
 fun MutedText(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier = modifier, color = ReefColors.Muted, fontSize = 13.sp, style = MaterialTheme.typography.bodySmall)
+}
+
+fun levelColor(level: Level): Color = when (level) {
+    Level.ALARM -> ReefColors.Error
+    Level.WARN -> ReefColors.Warn
+    Level.INFO -> ReefColors.Accent
+    Level.OK -> ReefColors.Text
+}
+
+/** Sensores em duas colunas: rótulo pequeno, valor grande colorido pelo status. */
+@Composable
+fun SensorGrid(sensors: List<Sensor>) {
+    sensors.chunked(2).forEach { row ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            row.forEach { s ->
+                Column(Modifier.weight(1f)) {
+                    Text(s.label, fontSize = 11.sp, color = ReefColors.Muted)
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(s.value, fontSize = 22.sp, fontWeight = FontWeight.Light, color = levelColor(s.status))
+                        if (s.unit.isNotBlank()) {
+                            Text(
+                                " ${s.unit}",
+                                fontSize = 13.sp,
+                                color = ReefColors.Muted,
+                                modifier = Modifier.padding(bottom = 3.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            if (row.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
 }

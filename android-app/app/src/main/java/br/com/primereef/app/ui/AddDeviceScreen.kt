@@ -2,6 +2,7 @@ package br.com.primereef.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.primereef.app.AppViewModel
+import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.net.Discovery
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +59,7 @@ fun AddDeviceScreen(vm: AppViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Adicionar luminária", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Adicionar aparelho", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
@@ -76,7 +78,7 @@ fun AddDeviceScreen(vm: AppViewModel, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ReefCard(title = "Luminárias na rede") {
+            ReefCard(title = "Aparelhos Prime Reef na rede") {
                 if (state.running) {
                     LinearProgressIndicator(
                         progress = { state.progress },
@@ -88,11 +90,11 @@ fun AddDeviceScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
                 state.message?.let { MutedText(it) }
                 state.found.forEach { f ->
-                    val already = devices.any { it.host == f.host || it.id == f.name }
+                    val already = devices.any { it.host == f.host || (f.id != null && it.id == f.id) }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(f.name)
-                            MutedText("${f.host} · ${f.source}")
+                            MutedText("${DeviceType.of(f.type).label} · ${f.host}")
                         }
                         if (already) {
                             MutedText("Adicionada")
@@ -107,9 +109,11 @@ fun AddDeviceScreen(vm: AppViewModel, onBack: () -> Unit) {
                         OutlinedButton(onClick = { vm.startDiscovery() }, modifier = Modifier.weight(1f)) {
                             Text("Buscar de novo")
                         }
-                        val pending = state.found.filter { f -> devices.none { it.host == f.host || it.id == f.name } }
+                        val pending = state.found.filter { f ->
+                            devices.none { it.host == f.host || (f.id != null && it.id == f.id) }
+                        }
                         if (pending.size > 1) {
-                            Button(onClick = { pending.forEach(vm::addDevice) }, modifier = Modifier.weight(1f)) {
+                            Button(onClick = { pending.forEach { vm.addDevice(it) } }, modifier = Modifier.weight(1f)) {
                                 Text("Adicionar todas")
                             }
                         }
@@ -136,15 +140,19 @@ fun AddDeviceScreen(vm: AppViewModel, onBack: () -> Unit) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(
-                    onClick = { vm.addManual(ip, name); ip = ""; name = "" },
+                    onClick = {
+                        vm.addManual(ip, name) { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                        ip = ""
+                        name = ""
+                    },
                     enabled = ip.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Adicionar") }
             }
 
-            ReefCard(title = "Luminária nova (primeira configuração)") {
+            ReefCard(title = "Aparelho novo (primeira configuração)") {
                 MutedText(
-                    "1. Ligue a luminária. Sem Wi-Fi configurado, ela cria uma rede Wi-Fi própria da Prime Reef.\n" +
+                    "1. Ligue o aparelho. Sem Wi-Fi configurado, ele cria uma rede Wi-Fi própria da Prime Reef.\n" +
                         "2. Conecte o celular nessa rede.\n" +
                         "3. Abra o painel, escolha seu Wi-Fi e digite a senha.\n" +
                         "4. Volte o celular para o seu Wi-Fi e toque em \"Buscar de novo\".",

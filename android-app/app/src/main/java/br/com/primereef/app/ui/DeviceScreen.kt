@@ -62,12 +62,12 @@ import br.com.primereef.app.data.Device
 import br.com.primereef.app.data.FoundPeer
 import br.com.primereef.app.data.LedChannel
 import br.com.primereef.app.data.Peer
+import br.com.primereef.app.data.Protocol
 import br.com.primereef.app.data.Schedule
 import kotlinx.coroutines.launch
 
 private val tabs = listOf("Controle", "Programação", "Grupo", "Sistema")
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
     val devices by vm.devices.collectAsStateWithLifecycle()
@@ -76,7 +76,24 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
         LaunchedEffect(Unit) { onBack() }
         return
     }
-    var tab by rememberSaveable { mutableStateOf(0) }
+    DeviceScaffold(vm, device, onBack) {
+        when (device.protocol) {
+            Protocol.LUMINARIA -> LuminariaContent(vm, device)
+            Protocol.PRP1 -> Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) { GenericDeviceContent(vm, device) }
+        }
+    }
+}
+
+/** Barra superior e menu comuns a todos os aparelhos (renomear, IP, painel web, remover). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeviceScaffold(vm: AppViewModel, device: Device, onBack: () -> Unit, content: @Composable () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var editingHost by remember { mutableStateOf(false) }
@@ -86,7 +103,12 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(device.name, fontWeight = FontWeight.SemiBold) },
+                title = {
+                    Column {
+                        Text(device.name, fontWeight = FontWeight.SemiBold)
+                        Text(device.deviceType.label, fontSize = 12.sp, color = ReefColors.Muted)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
@@ -111,31 +133,11 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
         },
         containerColor = ReefColors.Background,
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = tab, containerColor = ReefColors.Background) {
-                tabs.forEachIndexed { i, t ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t, fontSize = 13.sp) })
-                }
-            }
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                when (tab) {
-                    0 -> ControlTab(vm, device)
-                    1 -> ScheduleTab(vm, device)
-                    2 -> GroupTab(vm, device)
-                    3 -> SystemTab(vm, device)
-                }
-            }
-        }
+        Column(Modifier.fillMaxSize().padding(padding)) { content() }
     }
 
     if (renaming) {
-        TextInputDialog("Renomear luminária", device.name, onDismiss = { renaming = false }) {
+        TextInputDialog("Renomear", device.name, onDismiss = { renaming = false }) {
             vm.rename(device, it); renaming = false
         }
     }
@@ -148,12 +150,36 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
             title = { Text("Remover ${device.name}?") },
-            text = { Text("A luminária só é removida deste app. Nada é alterado nela.") },
+            text = { Text("O aparelho só é removido deste app. Nada é alterado nele.") },
             confirmButton = {
                 TextButton(onClick = { confirmRemove = false; vm.remove(device) }) { Text("Remover") }
             },
             dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancelar") } },
         )
+    }
+}
+
+@Composable
+private fun LuminariaContent(vm: AppViewModel, device: Device) {
+    var tab by rememberSaveable { mutableStateOf(0) }
+    TabRow(selectedTabIndex = tab, containerColor = ReefColors.Background) {
+        tabs.forEachIndexed { i, t ->
+            Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t, fontSize = 13.sp) })
+        }
+    }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        when (tab) {
+            0 -> ControlTab(vm, device)
+            1 -> ScheduleTab(vm, device)
+            2 -> GroupTab(vm, device)
+            3 -> SystemTab(vm, device)
+        }
     }
 }
 
@@ -216,7 +242,8 @@ private fun ControlTab(vm: AppViewModel, device: Device) {
 private fun ScheduleTab(vm: AppViewModel, device: Device) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val devices by vm.devices.collectAsStateWithLifecycle()
+    val allDevices by vm.devices.collectAsStateWithLifecycle()
+    val devices = allDevices.filter { it.protocol == Protocol.LUMINARIA }
     var schedule by remember { mutableStateOf<Schedule?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
