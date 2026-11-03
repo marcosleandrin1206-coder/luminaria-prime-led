@@ -10,6 +10,9 @@ on:
       - "android-app/**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,3 +41,19 @@ jobs:
           path: |
             android-app/app/build/outputs/apk/debug/*.apk
             android-app/app/build/outputs/apk/release/*.apk
+
+      # Link fixo para baixar direto no celular:
+      # https://github.com/<dono>/<repo>/releases/download/app-latest/PrimeReef.apk
+      # (não afeta a atualização da luminária, que lê firmware.bin/version.txt da main)
+      - name: Publicar APK para download direto
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk PrimeReef.apk
+          gh release delete app-latest --yes --cleanup-tag || true
+          gh release create app-latest PrimeReef.apk \
+            --title "App Prime Reef Brasil (mais recente)" \
+            --notes "APK gerado automaticamente do commit ${GITHUB_SHA::7}. Baixe o PrimeReef.apk e instale no Android." \
+            --prerelease \
+            --target "$GITHUB_SHA"

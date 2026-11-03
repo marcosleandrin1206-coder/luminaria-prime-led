@@ -33,9 +33,12 @@ A luminária atual (firmware v9) usa a API própria dela e tem uma tela especial
 
 ## Como obter o APK
 
-Cada push que altera `android-app/` dispara o workflow **App Android** no GitHub Actions.
-Abra a execução mais recente em *Actions → App Android* e baixe o artefato `prime-reef-apk`.
-Instale o `app-release.apk` no celular (é preciso permitir "instalar apps de fontes desconhecidas").
+Abra no celular e instale (permita "instalar apps de fontes desconhecidas"):
+
+**https://github.com/marcosleandrin1206-coder/luminaria-prime-led/releases/download/app-latest/PrimeReef.apk**
+
+Esse link sempre aponta para a versão mais recente: cada push que altera `android-app/` recompila o
+app no GitHub Actions e substitui o arquivo.
 
 ## Compilando localmente
 
