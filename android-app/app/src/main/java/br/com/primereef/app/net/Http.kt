@@ -19,6 +19,8 @@ object Http {
         method: String = "GET",
         body: String? = null,
         timeoutMs: Int = 4000,
+        headers: Map<String, String> = emptyMap(),
+        contentType: String = "text/plain",
     ): String = withContext(Dispatchers.IO) {
         val conn = URL(baseUrl(host) + path).openConnection() as HttpURLConnection
         conn.connectTimeout = minOf(timeoutMs, 5000)
@@ -26,10 +28,11 @@ object Http {
         conn.requestMethod = method
         conn.useCaches = false
         conn.instanceFollowRedirects = false
+        headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
         try {
             if (body != null) {
                 conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "text/plain")
+                conn.setRequestProperty("Content-Type", contentType)
                 conn.outputStream.use { it.write(body.toByteArray()) }
             }
             val code = conn.responseCode

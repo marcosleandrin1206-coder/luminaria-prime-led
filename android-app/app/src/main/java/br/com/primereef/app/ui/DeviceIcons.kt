@@ -25,6 +25,7 @@ import br.com.primereef.app.data.DeviceType
 fun DeviceType.accent(): Color = when (this) {
     DeviceType.LUMINARIA -> Color(0xFF29B6F6)
     DeviceType.KH -> Color(0xFFB388FF)
+    DeviceType.ALIMENTADOR -> Color(0xFFFFB74D)
     DeviceType.DOSADORA -> Color(0xFF3FB950)
     DeviceType.BOMBA -> Color(0xFF4DD0E1)
     DeviceType.ATO -> Color(0xFF58A6FF)
@@ -75,6 +76,19 @@ private fun DrawScope.drawDevice(type: DeviceType, c: Color) {
             drawLine(c, Offset(w * 0.28f, h * 0.06f), Offset(w * 0.72f, h * 0.06f), sw, StrokeCap.Round)
             drawRect(c.copy(alpha = 0.6f), Offset(w * 0.40f, h * 0.48f), Size(w * 0.20f, h * 0.30f))
             drawCircle(c, w * 0.10f, Offset(w * 0.5f, h * 0.84f))
+        }
+        DeviceType.ALIMENTADOR -> {
+            // Pote de ração com grãos caindo
+            drawRoundRect(c, Offset(w * 0.22f, h * 0.04f), Size(w * 0.56f, h * 0.12f), CornerRadius(w * 0.04f))
+            val jar = Path().apply {
+                moveTo(w * 0.26f, h * 0.18f); lineTo(w * 0.74f, h * 0.18f)
+                lineTo(w * 0.66f, h * 0.56f); lineTo(w * 0.34f, h * 0.56f); close()
+            }
+            drawPath(jar, c, style = stroke)
+            drawRect(c.copy(alpha = 0.55f), Offset(w * 0.33f, h * 0.36f), Size(w * 0.34f, h * 0.17f))
+            listOf(0.42f to 0.68f, 0.56f to 0.76f, 0.46f to 0.86f, 0.60f to 0.94f, 0.38f to 0.96f).forEach { (x, y) ->
+                drawCircle(c, w * 0.045f, Offset(w * x, h * y))
+            }
         }
         DeviceType.DOSADORA -> {
             // Corpo da bomba + cabeça peristáltica + gota

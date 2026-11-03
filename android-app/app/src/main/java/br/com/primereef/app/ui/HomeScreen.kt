@@ -72,6 +72,7 @@ data class Product(val type: DeviceType, val name: String, val description: Stri
 val PRODUCTS = listOf(
     Product(DeviceType.LUMINARIA, "Luminária Prime LED", "Iluminação marinha 4 canais", available = true),
     Product(DeviceType.KH, "AquaPrime KH", "Medidor automático de KH", available = true),
+    Product(DeviceType.ALIMENTADOR, "Alimentador inteligente", "Via app Smart Life (Tuya)", available = true),
     Product(DeviceType.DOSADORA, "Dosadora", "Dosagem de suplementos", available = false),
     Product(DeviceType.BOMBA, "Bomba / Wavemaker", "Circulação e retorno", available = false),
     Product(DeviceType.ATO, "Reposição ATO", "Reposição de água doce", available = false),
@@ -170,8 +171,13 @@ fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: (DeviceType?) 
             fullWidth("add-title") { SectionTitle("Adicionar produto Prime Reef") }
             items(PRODUCTS, key = { "p-" + it.type.key }) { p -> ProductTile(p) { onAdd(p.type) } }
             fullWidth("add-other") {
-                OutlinedButton(onClick = { onAdd(null) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Buscar todos os equipamentos na rede")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { onAdd(null) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Buscar todos os equipamentos na rede")
+                    }
+                    OutlinedButton(onClick = { onAdd(DeviceType.ALIMENTADOR) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Equipamentos do app Smart Life / Tuya")
+                    }
                 }
             }
         }

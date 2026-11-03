@@ -6,12 +6,15 @@ enum class Protocol {
     LUMINARIA,
     /** Protocolo Prime Reef v1 (/api/info, /api/state, /api/set): tela montada a partir do aparelho. */
     PRP1,
+    /** Equipamentos da plataforma Tuya (app Smart Life), controlados pela nuvem Tuya. */
+    TUYA,
 }
 
 /** Famílias de aparelhos do ecossistema Prime Reef Brasil. */
 enum class DeviceType(val key: String, val label: String, val plural: String) {
     LUMINARIA("luminaria", "Luminária", "Iluminação"),
     KH("kh", "AquaPrime KH", "Medidores de KH"),
+    ALIMENTADOR("alimentador", "Alimentador", "Alimentadores"),
     DOSADORA("dosadora", "Dosadora", "Dosadoras"),
     BOMBA("bomba", "Bomba", "Bombas e circulação"),
     ATO("ato", "Reposição (ATO)", "Reposição de água"),
@@ -119,6 +122,8 @@ data class Control(
     val unit: String,
     val options: List<String>,
     val confirm: String?,
+    /** Texto do botão de controles "number" (ex.: "Alimentar"). */
+    val applyLabel: String = "Aplicar",
 ) {
     val boolValue: Boolean get() = value == "true" || value == "1"
     val numValue: Double get() = value?.toDoubleOrNull() ?: min

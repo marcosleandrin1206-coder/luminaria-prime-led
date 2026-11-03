@@ -14,6 +14,7 @@ import br.com.primereef.app.ui.AddDeviceScreen
 import br.com.primereef.app.ui.DeviceScreen
 import br.com.primereef.app.ui.HomeScreen
 import br.com.primereef.app.ui.PrimeReefTheme
+import br.com.primereef.app.ui.TuyaScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
                 var route by rememberSaveable { mutableStateOf("home") }
                 BackHandler(enabled = route != "home") { route = "home" }
                 when {
+                    route == "tuya" -> TuyaScreen(vm, onBack = { route = "home" })
                     route.startsWith("add") -> AddDeviceScreen(
                         vm = vm,
                         productType = route.substringAfter("add:", "").ifBlank { null }?.let { DeviceType.of(it) },
@@ -40,7 +42,14 @@ class MainActivity : ComponentActivity() {
                     else -> HomeScreen(
                         vm = vm,
                         onOpen = { route = "device:${it.id}" },
-                        onAdd = { type -> route = if (type == null) "add" else "add:${type.key}" },
+                        onAdd = { type ->
+                            route = when (type) {
+                                null -> "add"
+                                // Alimentador e outros aparelhos Smart Life entram pela nuvem Tuya.
+                                DeviceType.ALIMENTADOR -> "tuya"
+                                else -> "add:${type.key}"
+                            }
+                        },
                     )
                 }
             }

@@ -41,6 +41,7 @@ import br.com.primereef.app.data.Control
 import br.com.primereef.app.data.ControlType
 import br.com.primereef.app.data.Device
 import br.com.primereef.app.data.DeviceInfo
+import br.com.primereef.app.data.Protocol
 import kotlin.math.roundToInt
 
 /**
@@ -54,7 +55,9 @@ fun GenericDeviceContent(vm: AppViewModel, device: Device) {
     val state = entry?.state
     val context = LocalContext.current
     var info by remember { mutableStateOf<DeviceInfo?>(null) }
-    LaunchedEffect(device.host) { info = runCatching { vm.deviceApi(device).info() }.getOrNull() }
+    LaunchedEffect(device.host) {
+        if (device.protocol == Protocol.PRP1) info = runCatching { vm.deviceApi(device).info() }.getOrNull()
+    }
 
     val send: (Control, String) -> Unit = { c, v ->
         vm.setControl(device, c.id, v) { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
@@ -99,7 +102,7 @@ fun GenericDeviceContent(vm: AppViewModel, device: Device) {
         InfoLine("Tipo", device.deviceType.label)
         info?.model?.ifBlank { null }?.let { InfoLine("Modelo", it) }
         info?.fw?.ifBlank { null }?.let { InfoLine("Firmware", "v$it") }
-        InfoLine("Endereço", device.host)
+        InfoLine("Conexão", if (device.protocol == Protocol.TUYA) "Nuvem Tuya (Smart Life)" else device.host)
         InfoLine("ID", device.id)
     }
 }
@@ -169,7 +172,7 @@ private fun ControlView(c: Control, enabled: Boolean, onSend: (String) -> Unit) 
                 Button(
                     onClick = { parsed?.let { onSend(text.replace(',', '.')) } },
                     enabled = enabled && parsed != null && parsed >= c.min && parsed <= c.max,
-                ) { Text("Aplicar") }
+                ) { Text(c.applyLabel) }
             }
             MutedText("Entre ${formatNumber(c.min, c.step)} e ${formatNumber(c.max, c.step)} ${c.unit}".trim())
         }

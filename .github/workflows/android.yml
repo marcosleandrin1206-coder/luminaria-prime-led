@@ -32,7 +32,7 @@ jobs:
       - name: Compilar APK
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug assembleRelease
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug assembleRelease
 
       - name: Publicar APKs
         uses: actions/upload-artifact@v4

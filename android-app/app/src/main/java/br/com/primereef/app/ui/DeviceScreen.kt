@@ -95,7 +95,7 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
                 }
                 DeviceWebPanel("http://${device.host}/")
             }
-            Protocol.PRP1 -> Column(
+            Protocol.PRP1, Protocol.TUYA -> Column(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
@@ -149,11 +149,13 @@ private fun DeviceScaffold(
                             DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; toggle() })
                         }
                         DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; renaming = true })
-                        DropdownMenuItem(text = { Text("Alterar IP") }, onClick = { menu = false; editingHost = true })
-                        DropdownMenuItem(text = { Text("Abrir painel web") }, onClick = {
-                            menu = false
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${device.host}/")))
-                        })
+                        if (device.protocol != Protocol.TUYA) {
+                            DropdownMenuItem(text = { Text("Alterar IP") }, onClick = { menu = false; editingHost = true })
+                            DropdownMenuItem(text = { Text("Abrir painel web") }, onClick = {
+                                menu = false
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${device.host}/")))
+                            })
+                        }
                         DropdownMenuItem(text = { Text("Remover do app") }, onClick = { menu = false; confirmRemove = true })
                     }
                 },
