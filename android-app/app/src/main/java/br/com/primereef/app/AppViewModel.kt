@@ -12,6 +12,7 @@ import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.data.GenericState
 import br.com.primereef.app.data.Protocol
 import br.com.primereef.app.data.Schedule
+import br.com.primereef.app.net.AppUpdate
 import br.com.primereef.app.net.DeviceApi
 import br.com.primereef.app.net.HttpStatusException
 import br.com.primereef.app.net.Discovery
@@ -49,6 +50,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _discovery = MutableStateFlow(DiscoveryState())
     val discoveryState: StateFlow<DiscoveryState> = _discovery.asStateFlow()
+
+    private val _updateAvailable = MutableStateFlow(false)
+    val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _updateAvailable.value = runCatching { AppUpdate.isUpdateAvailable() }.getOrDefault(false)
+        }
+    }
 
     private var pollJob: Job? = null
     private var discoveryJob: Job? = null

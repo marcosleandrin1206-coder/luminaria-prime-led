@@ -1,5 +1,7 @@
 package br.com.primereef.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -26,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +63,7 @@ import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.data.LedChannel
 import br.com.primereef.app.data.Level
 import br.com.primereef.app.data.Protocol
+import br.com.primereef.app.net.AppUpdate
 import kotlinx.coroutines.launch
 
 /** Produto do catálogo Prime Reef Brasil exibido em "Adicionar produto". */
@@ -79,6 +83,7 @@ val PRODUCTS = listOf(
 fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: (DeviceType?) -> Unit) {
     val devices by vm.devices.collectAsStateWithLifecycle()
     val live by vm.live.collectAsStateWithLifecycle()
+    val updateAvailable by vm.updateAvailable.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val luminarias = devices.filter { it.protocol == Protocol.LUMINARIA }
@@ -116,6 +121,22 @@ fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: (DeviceType?) 
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (updateAvailable) {
+                fullWidth("update") {
+                    ReefCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Nova versão do app disponível", fontWeight = FontWeight.SemiBold, color = ReefColors.Accent)
+                                MutedText("Baixe e instale por cima. Seus equipamentos continuam salvos.")
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Button(onClick = {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(AppUpdate.DOWNLOAD_URL)))
+                            }) { Text("Atualizar") }
+                        }
+                    }
+                }
+            }
             if (devices.isNotEmpty()) {
                 fullWidth("overview") { OverviewCard(devices, live, onOpen) }
                 fullWidth("meus") { SectionTitle("Meus equipamentos") }
