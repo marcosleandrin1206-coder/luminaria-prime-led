@@ -37,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.primereef.app.AppViewModel
+import br.com.primereef.app.BuildConfig
 import br.com.primereef.app.R
 import br.com.primereef.app.data.Device
 import br.com.primereef.app.data.DeviceLive
@@ -178,6 +180,21 @@ fun HomeScreen(vm: AppViewModel, onOpen: (Device) -> Unit, onAdd: (DeviceType?) 
                     OutlinedButton(onClick = { onAdd(DeviceType.ALIMENTADOR) }, modifier = Modifier.fillMaxWidth()) {
                         Text("Equipamentos do app Smart Life / Tuya")
                     }
+                }
+            }
+            fullWidth("version") {
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    MutedText("Prime Reef Brasil · versão ${BuildConfig.VERSION_NAME}")
+                    TextButton(onClick = {
+                        vm.checkForUpdate(force = true) { ok ->
+                            val msg = when (ok) {
+                                true -> "Nova versão disponível! Use o botão Atualizar no topo."
+                                false -> "Você já está na versão mais recente."
+                                null -> "Não foi possível verificar agora. Confira sua internet."
+                            }
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        }
+                    }) { Text("Verificar atualização") }
                 }
             }
         }

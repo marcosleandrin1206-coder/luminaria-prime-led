@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.startPolling()
+        vm.checkForUpdate()
     }
 
     override fun onPause() {

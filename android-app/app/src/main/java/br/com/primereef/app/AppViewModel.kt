@@ -73,9 +73,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _updateAvailable = MutableStateFlow(false)
     val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
 
-    init {
+    private var lastUpdateCheck = 0L
+
+    /** Confere se há APK novo. Chamado sempre que o app volta para a tela (no máximo a cada 5 min). */
+    fun checkForUpdate(force: Boolean = false, onResult: (Boolean?) -> Unit = {}) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastUpdateCheck < 5 * 60_000) return
+        lastUpdateCheck = now
         viewModelScope.launch {
-            _updateAvailable.value = runCatching { AppUpdate.isUpdateAvailable() }.getOrDefault(false)
+            val r = runCatching { AppUpdate.isUpdateAvailable() }
+            r.getOrNull()?.let { _updateAvailable.value = it }
+            onResult(r.getOrNull())
         }
     }
 
