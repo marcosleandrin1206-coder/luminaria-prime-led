@@ -57,3 +57,30 @@ jobs:
             --notes "APK gerado automaticamente do commit ${GITHUB_SHA::7}. Baixe o PrimeReef.apk e instale no Android." \
             --prerelease \
             --target "$GITHUB_SHA"
+
+      # Capturas das telas do app com equipamentos simulados (não bloqueia o APK).
+      - name: Gerar imagens das telas
+        id: telas
+        continue-on-error: true
+        run: ./gradlew --no-daemon testDebugUnitTest -Ptelas --tests '*TelasTest*'
+
+      - name: Publicar imagens das telas
+        if: steps.telas.outcome == 'success' && github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la app/build/telas
+          gh release delete app-telas --yes --cleanup-tag || true
+          gh release create app-telas app/build/telas/*.png \
+            --title "Telas do app Prime Reef (simuladas)" \
+            --notes "Capturas geradas automaticamente com equipamentos simulados (commit ${GITHUB_SHA::7})." \
+            --prerelease \
+            --target "$GITHUB_SHA"
+
+      - name: Guardar relatório dos testes de tela
+        if: steps.telas.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-telas
+          path: android-app/app/build/reports/tests/

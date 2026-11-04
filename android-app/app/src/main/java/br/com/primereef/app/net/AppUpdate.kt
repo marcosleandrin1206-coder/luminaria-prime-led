@@ -14,6 +14,7 @@ object AppUpdate {
     suspend fun isUpdateAvailable(): Boolean {
         val local = BuildConfig.GIT_SHA
         if (local == "dev") return false // build local (Android Studio): não avisa
+        if (android.os.Build.FINGERPRINT == "robolectric") return false // testes automáticos
         val remote = JSONObject(Http.request(RELEASE_API, "", timeoutMs = 8000)).optString("target_commitish")
         return remote.length >= 7 && remote != local
     }

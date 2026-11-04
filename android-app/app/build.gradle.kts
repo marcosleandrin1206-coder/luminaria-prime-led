@@ -37,6 +37,16 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("roborazzi.test.record", "true")
+                // ./gradlew testDebugUnitTest -Ptelas  -> gera as capturas de tela em app/build/telas
+                if (project.hasProperty("telas")) it.systemProperty("telas", "true")
+            }
+        }
+    }
 }
 
 dependencies {
@@ -56,4 +66,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     testImplementation("junit:junit:4.13.2")
+    // Capturas de tela automáticas (Robolectric + Roborazzi), sem emulador
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.26.0")
 }
