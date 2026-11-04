@@ -102,7 +102,7 @@ fun GenericDeviceContent(vm: AppViewModel, device: Device) {
         InfoLine("Tipo", device.deviceType.label)
         info?.model?.ifBlank { null }?.let { InfoLine("Modelo", it) }
         info?.fw?.ifBlank { null }?.let { InfoLine("Firmware", "v$it") }
-        InfoLine("Conexão", if (device.protocol == Protocol.TUYA) "Nuvem Tuya (Smart Life)" else device.host)
+        InfoLine("Endereço", device.host)
         InfoLine("ID", device.id)
     }
 }

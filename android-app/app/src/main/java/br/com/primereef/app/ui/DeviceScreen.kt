@@ -64,6 +64,7 @@ import br.com.primereef.app.data.FoundPeer
 import br.com.primereef.app.data.LedChannel
 import br.com.primereef.app.data.Peer
 import br.com.primereef.app.data.Protocol
+import br.com.primereef.app.net.Http
 import br.com.primereef.app.data.Schedule
 import kotlinx.coroutines.launch
 
@@ -77,31 +78,39 @@ fun DeviceScreen(vm: AppViewModel, deviceId: String, onBack: () -> Unit) {
         LaunchedEffect(Unit) { onBack() }
         return
     }
-    // Luminária: abre o painel do próprio firmware (idêntico ao web). Os controles nativos do app
-    // ficam disponíveis no menu.
+    // Equipamento com página própria (luminária, dosadora...): abre a página do firmware, idêntica à do
+    // navegador e atualizada junto com o firmware. Os controles do app ficam disponíveis no menu.
     var nativeView by rememberSaveable { mutableStateOf(false) }
-    val altView = if (device.protocol == Protocol.LUMINARIA) {
-        (if (nativeView) "Ver painel da luminária" else "Ver controles do app") to { nativeView = !nativeView }
+    var hasPage by remember(device.host) { mutableStateOf(device.protocol == Protocol.LUMINARIA) }
+    LaunchedEffect(device.host) {
+        if (device.protocol == Protocol.PRP1) {
+            hasPage = runCatching {
+                Http.request(device.host, "/", timeoutMs = 3000).contains("<html", ignoreCase = true)
+            }.getOrDefault(false)
+        }
+    }
+    val altView = if (hasPage) {
+        (if (nativeView) "Ver página do equipamento" else "Ver controles do app") to { nativeView = !nativeView }
     } else null
     DeviceScaffold(vm, device, onBack, altView) {
-        when (device.protocol) {
-            Protocol.LUMINARIA -> if (nativeView) {
-                LuminariaContent(vm, device)
-            } else {
-                // Pausa o polling do app enquanto o painel (que já faz o seu) está aberto.
-                DisposableEffect(device.id) {
-                    vm.pausePolling(device.id, true)
-                    onDispose { vm.pausePolling(device.id, false) }
-                }
-                DeviceWebPanel("http://${device.host}/")
+        if (hasPage && !nativeView) {
+            // Pausa o polling do app enquanto a página (que já faz o seu) está aberta.
+            DisposableEffect(device.id) {
+                vm.pausePolling(device.id, true)
+                onDispose { vm.pausePolling(device.id, false) }
             }
-            Protocol.PRP1, Protocol.TUYA -> Column(
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { GenericDeviceContent(vm, device) }
+            DeviceWebPanel("http://${device.host}/")
+        } else {
+            when (device.protocol) {
+                Protocol.LUMINARIA -> LuminariaContent(vm, device)
+                Protocol.PRP1 -> Column(
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) { GenericDeviceContent(vm, device) }
+            }
         }
     }
 }
@@ -149,13 +158,11 @@ private fun DeviceScaffold(
                             DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; toggle() })
                         }
                         DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; renaming = true })
-                        if (device.protocol != Protocol.TUYA) {
-                            DropdownMenuItem(text = { Text("Alterar IP") }, onClick = { menu = false; editingHost = true })
-                            DropdownMenuItem(text = { Text("Abrir painel web") }, onClick = {
-                                menu = false
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${device.host}/")))
-                            })
-                        }
+                        DropdownMenuItem(text = { Text("Alterar IP") }, onClick = { menu = false; editingHost = true })
+                        DropdownMenuItem(text = { Text("Abrir painel web") }, onClick = {
+                            menu = false
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${device.host}/")))
+                        })
                         DropdownMenuItem(text = { Text("Remover do app") }, onClick = { menu = false; confirmRemove = true })
                     }
                 },

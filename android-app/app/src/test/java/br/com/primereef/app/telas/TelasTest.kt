@@ -96,10 +96,9 @@ class TelasTest {
             foto("06_dosadora")
             back()
 
-            esperarTexto("Alimentador inteligente")
-            compose.onNodeWithText("Alimentador inteligente").performClick()
-            esperarTexto("Como obter as chaves", substring = true)
-            foto("07_smart_life")
+            compose.onNodeWithText("Dosadora Prime Reef").performClick()
+            esperarTexto("Adicionar pelo IP")
+            foto("07_adicionar_dosadora")
             back()
 
             compose.onNodeWithText("Luminária Prime LED").performClick()

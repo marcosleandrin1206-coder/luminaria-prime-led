@@ -12,15 +12,17 @@ class DeviceRepository(context: Context) {
         val raw = prefs.getString(KEY, null) ?: return emptyList()
         return runCatching {
             val arr = JSONArray(raw)
-            (0 until arr.length()).map { i ->
+            (0 until arr.length()).mapNotNull { i ->
                 val o = arr.getJSONObject(i)
+                // Protocolo que o app não conhece mais (ex.: Tuya, removido): o aparelho é descartado.
+                val protocol = o.optString("protocol").ifBlank { Protocol.LUMINARIA.name }
+                if (Protocol.entries.none { it.name == protocol }) return@mapNotNull null
                 Device(
                     id = o.getString("id"),
                     name = o.getString("name"),
                     host = o.getString("host"),
                     type = o.optString("type", DeviceType.LUMINARIA.key),
-                    protocol = runCatching { Protocol.valueOf(o.optString("protocol")) }
-                        .getOrDefault(Protocol.LUMINARIA),
+                    protocol = Protocol.valueOf(protocol),
                 )
             }
         }.getOrDefault(emptyList())

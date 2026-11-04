@@ -1,4 +1,4 @@
-name: Firmware SDK
+name: Firmware SDK (exemplos)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compilar:
@@ -46,15 +46,3 @@ jobs:
         with:
           name: firmware-dosadora
           path: out/*.bin
-
-      # Link fixo para baixar o .bin (não interfere no firmware.bin da luminária na main).
-      - name: Publicar binário da dosadora
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete dosadora-latest --yes --cleanup-tag || true
-          gh release create dosadora-latest out/dosadora-rele-esp8285.bin \
-            --title "Firmware Dosadora Prime Reef (placa relé PSF-B01)" \
-            --notes "Firmware gerado automaticamente do commit ${GITHUB_SHA::7}. Grave com um adaptador USB-serial 3,3 V." \
-            --prerelease \
-            --target "$GITHUB_SHA"

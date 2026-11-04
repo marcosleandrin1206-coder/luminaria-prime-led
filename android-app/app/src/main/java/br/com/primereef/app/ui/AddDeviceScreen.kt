@@ -197,6 +197,8 @@ fun AddDeviceScreen(vm: AppViewModel, productType: DeviceType?, onBack: () -> Un
 /** Orientação específica de cada produto na tela de adicionar. */
 private fun productNote(type: DeviceType): String? = when (type) {
     DeviceType.LUMINARIA -> "Deixe a luminária ligada e o celular no mesmo Wi-Fi. Ela é encontrada automaticamente."
+    DeviceType.DOSADORA -> "Ligue a dosadora e deixe o celular no mesmo Wi-Fi. Dosadora nova: conecte o celular na rede " +
+        "PrimeReef-Dosadora-XXXX (senha primereef), a página de configuração abre sozinha (ou acesse 192.168.4.1)."
     DeviceType.KH -> "O AquaPrime KH aparece aqui assim que o firmware dele usar o padrão Prime Reef (biblioteca PrimeReefDevice)."
     else -> "Produto em desenvolvimento. Assim que o firmware dele usar o padrão Prime Reef, ele aparece aqui automaticamente."
 }

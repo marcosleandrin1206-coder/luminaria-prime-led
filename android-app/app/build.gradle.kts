@@ -12,8 +12,8 @@ android {
         applicationId = "br.com.primereef.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.3.3"
+        versionCode = 8
+        versionName = "1.4.0"
         // Commit do build (o GitHub Actions define GITHUB_SHA). Usado para avisar quando há versão nova.
         buildConfigField("String", "GIT_SHA", "\"${System.getenv("GITHUB_SHA") ?: "dev"}\"")
     }

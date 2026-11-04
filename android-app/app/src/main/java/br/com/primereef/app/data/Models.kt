@@ -6,8 +6,6 @@ enum class Protocol {
     LUMINARIA,
     /** Protocolo Prime Reef v1 (/api/info, /api/state, /api/set): tela montada a partir do aparelho. */
     PRP1,
-    /** Equipamentos da plataforma Tuya (app Smart Life), controlados pela nuvem Tuya. */
-    TUYA,
 }
 
 /** Famílias de aparelhos do ecossistema Prime Reef Brasil. */

@@ -1,7 +1,7 @@
 # App Android — Prime Reef Brasil
 
 Aplicativo Android para controlar **todo o ecossistema Prime Reef Brasil** em um só lugar:
-luminárias, dosadoras, bombas, reposição (ATO), controladores e sensores.
+luminárias, dosadoras, AquaPrime KH e os próximos produtos Prime Reef.
 Ele conversa direto com cada aparelho pela rede Wi-Fi local (não precisa de nuvem nem de conta).
 
 ## Como o app suporta aparelhos que ainda nem existem

@@ -12,11 +12,7 @@ import br.com.primereef.app.data.DeviceType
 import br.com.primereef.app.data.GenericState
 import br.com.primereef.app.data.Protocol
 import br.com.primereef.app.data.Schedule
-import br.com.primereef.app.data.TuyaStore
 import br.com.primereef.app.net.AppUpdate
-import br.com.primereef.app.net.TuyaCloud
-import br.com.primereef.app.net.TuyaCredentials
-import br.com.primereef.app.net.TuyaDeviceSummary
 import br.com.primereef.app.net.DeviceApi
 import br.com.primereef.app.net.HttpStatusException
 import br.com.primereef.app.net.Discovery
@@ -44,21 +40,7 @@ data class DiscoveryState(
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = DeviceRepository(app)
-    private val tuyaStore = TuyaStore(app)
-    private var tuya: TuyaCloud? = tuyaStore.load()?.let { TuyaCloud(it) }
 
-    /** Estado da conexão com a nuvem Tuya (app Smart Life). */
-    data class TuyaState(
-        val connected: Boolean = false,
-        val busy: Boolean = false,
-        val devices: List<TuyaDeviceSummary> = emptyList(),
-        val message: String? = null,
-    )
-
-    private val _tuyaState = MutableStateFlow(TuyaState(connected = tuya != null))
-    val tuyaState: StateFlow<TuyaState> = _tuyaState.asStateFlow()
-
-    fun tuyaCredentials(): TuyaCredentials? = tuyaStore.load()
     private val discovery = Discovery(app)
 
     private val _devices = MutableStateFlow(repo.load())
@@ -140,25 +122,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val result = runCatching { DeviceApi(d.host, timeoutMs = 2500).state() }
                 updateGeneric(d, result.getOrNull(), result.isSuccess)
             }
-            Protocol.TUYA -> refreshTuya(d, force = false)
         }
-    }
-
-    private val lastTuyaRefresh = mutableMapOf<String, Long>()
-
-    /** Nuvem Tuya: atualiza no máximo a cada 15 s para não gastar a cota gratuita da API. */
-    private suspend fun refreshTuya(d: Device, force: Boolean) {
-        val cloud = tuya
-        if (cloud == null) {
-            updateGeneric(d, null, false)
-            return
-        }
-        val now = System.currentTimeMillis()
-        if (!force && now - (lastTuyaRefresh[d.id] ?: 0L) < TUYA_POLL_MS) return
-        lastTuyaRefresh[d.id] = now
-        val result = runCatching { cloud.state(d.id) }
-        val (online, state) = result.getOrNull() ?: (false to null)
-        updateGeneric(d, state, online)
     }
 
     private fun updateGeneric(d: Device, state: GenericState?, online: Boolean) {
@@ -177,16 +141,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Altera um controle de um aparelho PRP1 e atualiza o estado com a resposta. */
     fun setControl(device: Device, controlId: String, value: String, onError: (String) -> Unit = {}) {
-        if (device.protocol == Protocol.TUYA) {
-            viewModelScope.launch {
-                val cloud = tuya ?: return@launch onError("Conecte sua conta Smart Life primeiro")
-                runCatching { cloud.send(device.id, controlId, value) }
-                    .onFailure { onError(it.message ?: "Falha ao enviar comando") }
-                delay(1500) // dá tempo do equipamento reportar o novo estado à nuvem
-                refreshTuya(device, force = true)
-            }
-            return
-        }
         viewModelScope.launch {
             runCatching { deviceApi(device).set(controlId, value) }
                 .onSuccess { state -> if (state != null) updateGeneric(device, state, true) else refresh(device) }
@@ -332,65 +286,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (idx >= 0) list.toMutableList().also { it[idx] = device } else list + device
         }
         repo.save(_devices.value)
-        viewModelScope.launch {
-            if (device.protocol == Protocol.TUYA) refreshTuya(device, force = true) else refresh(device)
-        }
-    }
-
-    // ---------- Nuvem Tuya / Smart Life ----------
-
-    /** Testa e salva as credenciais do projeto Tuya, depois lista os equipamentos da conta. */
-    fun connectTuya(creds: TuyaCredentials) {
-        _tuyaState.update { it.copy(busy = true, message = null) }
-        viewModelScope.launch {
-            val cloud = TuyaCloud(creds)
-            val result = runCatching {
-                cloud.testConnection()
-                cloud.devices()
-            }
-            result.onSuccess { list ->
-                tuyaStore.save(creds)
-                tuya = cloud
-                _tuyaState.value = TuyaState(
-                    connected = true,
-                    devices = list,
-                    message = if (list.isEmpty()) {
-                        "Conectado, mas nenhum equipamento encontrado. Vincule sua conta Smart Life ao projeto (aba Devices → Link App Account)."
-                    } else null,
-                )
-                refreshAll()
-            }.onFailure { e ->
-                _tuyaState.update { it.copy(busy = false, message = "Não foi possível conectar: ${e.message}") }
-            }
-        }
-    }
-
-    fun reloadTuyaDevices() {
-        val cloud = tuya ?: return
-        _tuyaState.update { it.copy(busy = true, message = null) }
-        viewModelScope.launch {
-            runCatching { cloud.devices() }
-                .onSuccess { list -> _tuyaState.update { it.copy(busy = false, devices = list) } }
-                .onFailure { e -> _tuyaState.update { it.copy(busy = false, message = e.message) } }
-        }
-    }
-
-    fun disconnectTuya() {
-        tuyaStore.clear()
-        tuya = null
-        _tuyaState.value = TuyaState()
-    }
-
-    fun addTuyaDevice(d: TuyaDeviceSummary) {
-        upsert(
-            Device(
-                id = d.id,
-                name = d.name.ifBlank { d.productName },
-                host = "tuya",
-                type = d.deviceType.key,
-                protocol = Protocol.TUYA,
-            ),
-        )
+        viewModelScope.launch { refresh(device) }
     }
 
     // ---------- Busca na rede ----------
@@ -444,6 +340,5 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         const val POLL_MS = 3000L
         const val PREVIEW_MS = 80L
         const val MDNS_TIMEOUT_MS = 10_000L
-        const val TUYA_POLL_MS = 15_000L
     }
 }
