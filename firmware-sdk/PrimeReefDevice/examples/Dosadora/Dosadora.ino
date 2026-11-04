@@ -149,6 +149,7 @@ void setup() {
 
 void loop() {
   server.handleClient();
+  reef.loop();
 
   // Desliga bombas cujo tempo terminou.
   for (int i = 0; i < N; i++) {

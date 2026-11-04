@@ -8,7 +8,8 @@ O app Prime Reef encontra o aparelho na rede (mDNS `_primereef._tcp`) e monta a 
 ## Instalação
 
 Copie a pasta `PrimeReefDevice` para `Documentos/Arduino/libraries/` e reinicie a Arduino IDE.
-Requer o core ESP32 da Espressif (usa `WebServer`, `ESPmDNS` e `WiFi`).
+Funciona com o core **ESP32** e com o core **ESP8266** (inclui ESP8285, como o módulo PSF-B01).
+No ESP8266 use `ESP8266WebServer` no lugar de `WebServer` e chame `reef.loop()` no `loop()`.
 
 ## Uso
 
@@ -37,7 +38,7 @@ void setup() {
   server.begin();
 }
 
-void loop() { server.handleClient(); }
+void loop() { server.handleClient(); reef.loop(); }
 ```
 
 Alertas aparecem no topo do app:
@@ -47,7 +48,10 @@ reef.setAlert("nivel", PrimeReefDevice::Level::Warn, "Nível do reservatório ba
 reef.clearAlert("nivel");
 ```
 
-Veja o exemplo completo em [`examples/Dosadora`](examples/Dosadora/Dosadora.ino).
+Exemplos:
+- [`examples/Dosadora`](examples/Dosadora/Dosadora.ino): dosadora de 3 canais (ESP32).
+- [`examples/DosadoraRele`](examples/DosadoraRele/DosadoraRele.ino): dosadora de 1 canal para a placa
+  relé eWeLink com módulo **PSF-B01** (ESP8285), com configuração de Wi-Fi pelo celular.
 
 | Tipo (`type`) | Aparelho |
 |---|---|

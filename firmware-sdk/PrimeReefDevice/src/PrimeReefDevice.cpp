@@ -1,7 +1,12 @@
 #include "PrimeReefDevice.h"
 
+#if defined(ESP8266)
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#else
 #include <ESPmDNS.h>
 #include <WiFi.h>
+#endif
 
 PrimeReefDevice::PrimeReefDevice(const char* type, const char* model, const char* fwVersion)
     : _type(type), _model(model), _fw(fwVersion), _name(model) {}
@@ -116,7 +121,13 @@ String PrimeReefDevice::deviceId() const {
   return _type + buf;
 }
 
-void PrimeReefDevice::begin(WebServer& server, bool startMdns) {
+void PrimeReefDevice::loop() {
+#if defined(ESP8266)
+  MDNS.update();
+#endif
+}
+
+void PrimeReefDevice::begin(PrimeReefWebServer& server, bool startMdns) {
   _server = &server;
   server.on("/api/info", HTTP_GET, [this]() { handleInfo(); });
   server.on("/api/state", HTTP_GET, [this]() { handleState(); });

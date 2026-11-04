@@ -1,20 +1,28 @@
 // PrimeReefDevice — Protocolo Prime Reef v1 (ver docs/PROTOCOLO.md)
 //
 // Uso básico:
-//   WebServer server(80);
+//   WebServer server(80);            // no ESP8266: ESP8266WebServer server(80);
 //   PrimeReefDevice reef("dosadora", "Dosadora 4 canais", "1");
 //   reef.addSensor("temp", "Temperatura", "°C", [] { return lerTemperatura(); });
 //   reef.addSwitch("auto", "Dosagem automática", [] { return autoOn; }, [](bool v) { autoOn = v; });
 //   ... depois de conectar no Wi-Fi:
 //   reef.begin(server);   // registra /api/info, /api/state, /api/set e o mDNS
 //   server.begin();
-//   loop(): server.handleClient();
+//   loop(): server.handleClient(); reef.loop();
 #pragma once
 
 #include <Arduino.h>
-#include <WebServer.h>
 #include <functional>
 #include <vector>
+
+// Funciona em ESP32 (WebServer) e ESP8266/ESP8285 (ESP8266WebServer).
+#if defined(ESP8266)
+#include <ESP8266WebServer.h>
+using PrimeReefWebServer = ESP8266WebServer;
+#else
+#include <WebServer.h>
+using PrimeReefWebServer = WebServer;
+#endif
 
 class PrimeReefDevice {
  public:
@@ -59,7 +67,10 @@ class PrimeReefDevice {
 
   // Registra as rotas no servidor e anuncia o serviço mDNS "_primereef._tcp".
   // startMdns=false se o firmware já chamou MDNS.begin() por conta própria.
-  void begin(WebServer& server, bool startMdns = true);
+  void begin(PrimeReefWebServer& server, bool startMdns = true);
+
+  // Chame no loop(). No ESP8266 mantém o mDNS respondendo; no ESP32 não faz nada.
+  void loop();
 
   // "<tipo>-xxxxxx" (últimos 3 bytes do MAC). Também é o hostname mDNS.
   String deviceId() const;
@@ -96,7 +107,7 @@ class PrimeReefDevice {
   String _type, _model, _fw, _name;
   std::vector<Item> _items;
   std::vector<AlertEntry> _alerts;
-  WebServer* _server = nullptr;
+  PrimeReefWebServer* _server = nullptr;
 
   Item* find(const String& id);
   void handleInfo();
