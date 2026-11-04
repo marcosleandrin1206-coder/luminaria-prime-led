@@ -242,7 +242,8 @@ fun ScheduleChart(schedule: Schedule, modifier: Modifier = Modifier) {
 
 @Composable
 fun MutedText(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier = modifier, color = ReefColors.Muted, fontSize = 13.sp, style = MaterialTheme.typography.bodySmall)
+    // Endereços (sites e IPs) no texto viram links clicáveis.
+    LinkText(text, modifier = modifier, color = ReefColors.Muted, fontSize = 13.sp)
 }
 
 fun levelColor(level: Level): Color = when (level) {

@@ -129,7 +129,7 @@ fun TuyaScreen(vm: AppViewModel, onBack: () -> Unit) {
 
             if (!state.connected) {
                 ReefCard(title = "Chaves do projeto Tuya") {
-                    Text(
+                    LinkText(
                         "Atenção: aqui NÃO vai o e-mail e a senha do Smart Life. A Tuya não permite login " +
                             "de outros apps com eles. Use as duas chaves do projeto gratuito criado em " +
                             "platform.tuya.com (passo a passo logo abaixo).",
@@ -217,6 +217,6 @@ fun TuyaScreen(vm: AppViewModel, onBack: () -> Unit) {
 private fun GuideStep(n: Int, text: String) {
     Row(Modifier.padding(vertical = 4.dp)) {
         Text("$n.", fontWeight = FontWeight.SemiBold, color = ReefColors.Accent, modifier = Modifier.width(22.dp))
-        Text(text, fontSize = 14.sp)
+        LinkText(text, fontSize = 14.sp)
     }
 }

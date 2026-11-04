@@ -80,7 +80,7 @@ fun GenericDeviceContent(vm: AppViewModel, device: Device) {
     if (state.alerts.isNotEmpty()) {
         ReefCard(title = "Alertas") {
             state.alerts.forEach { a ->
-                Text("• ${a.message}", color = levelColor(a.level), fontSize = 14.sp, modifier = Modifier.padding(vertical = 2.dp))
+                LinkText("• ${a.message}", color = levelColor(a.level), fontSize = 14.sp, modifier = Modifier.padding(vertical = 2.dp))
             }
         }
     }

@@ -542,7 +542,7 @@ private fun SystemTab(vm: AppViewModel, device: Device) {
         ) { Text("Verificar no grupo inteiro") }
         result?.let {
             Spacer(Modifier.height(10.dp))
-            Text(it, fontSize = 13.sp)
+            LinkText(it, fontSize = 13.sp)
         }
     }
 
