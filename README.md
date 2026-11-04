@@ -1,25 +1,16 @@
-# Prime Reef Brasil
+# Prime Reef Brasil — arquivos públicos
 
-Firmware e aplicativo do ecossistema Prime Reef Brasil para aquários marinhos.
+Este repositório guarda **apenas os arquivos prontos** que os equipamentos Prime Reef Brasil e os
+clientes baixam. O código-fonte é privado.
 
-| Pasta | Conteúdo |
+| Arquivo | Uso |
 |---|---|
-| `firmware.bin`, `version.txt` | Firmware da luminária (atualização remota OTA: **não mover/renomear**) |
-| [`android-app/`](android-app) | App Android que controla todos os aparelhos Prime Reef da rede |
-| [`dosadora/`](dosadora) | Firmware da Dosadora Prime Reef e as versões publicadas para atualização remota |
-| [`docs/PROTOCOLO.md`](docs/PROTOCOLO.md) | Protocolo Prime Reef v1: padrão que todo aparelho novo implementa |
-| [`firmware-sdk/PrimeReefDevice/`](firmware-sdk/PrimeReefDevice) | Biblioteca Arduino (ESP32) que implementa o protocolo, com exemplo de dosadora |
-| [`tools/simulador.py`](tools/simulador.py) | Simula dosadora, bomba, ATO e sensor para testar o app sem hardware |
+| `firmware.bin`, `version.txt` | Atualização remota da luminária Prime LED |
+| `dosadora/version.txt`, `dosadora/bin/` | Atualização remota da Dosadora Prime Reef |
+| Releases → `app-latest` → `PrimeReef.apk` | Aplicativo Prime Reef Brasil para Android |
 
-## Como encaixa
+**Não mova nem renomeie estes arquivos**: os equipamentos instalados procuram por eles nesses endereços.
 
-```
- App Android ──Wi-Fi local──┬── Luminária (API própria: /status, /live, /schedule...)
-                            ├── Dosadora   ┐
-                            ├── Bomba      │  Protocolo Prime Reef v1
-                            ├── ATO        │  /api/info  /api/state  /api/set
-                            └── Sensores   ┘  + mDNS _primereef._tcp
-```
+Baixar o app: https://github.com/marcosleandrin1206-coder/luminaria-prime-led/releases/download/app-latest/PrimeReef.apk
 
-Os aparelhos novos usam a biblioteca `PrimeReefDevice`: declaram sensores, controles e alertas, e o
-app monta a tela deles sozinho.
+Copyright (c) Prime Reef Brasil. Todos os direitos reservados. Veja [LICENSE](LICENSE).
