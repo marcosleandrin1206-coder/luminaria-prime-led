@@ -128,16 +128,31 @@ fun TuyaScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
 
             if (!state.connected) {
-                ReefCard(title = "Conectar conta") {
+                ReefCard(title = "Chaves do projeto Tuya") {
+                    Text(
+                        "Atenção: aqui NÃO vai o e-mail e a senha do Smart Life. A Tuya não permite login " +
+                            "de outros apps com eles. Use as duas chaves do projeto gratuito criado em " +
+                            "platform.tuya.com (passo a passo logo abaixo).",
+                        color = ReefColors.Warn,
+                        fontSize = 13.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    val looksLikeEmail = accessId.contains('@')
                     OutlinedTextField(
                         value = accessId, onValueChange = { accessId = it.trim() },
-                        label = { Text("Access ID / Client ID") }, singleLine = true,
+                        label = { Text("Access ID (do projeto Tuya)") },
+                        placeholder = { Text("ex.: k7x9d2mqp4r8tw3n5vyc") },
+                        singleLine = true,
+                        isError = looksLikeEmail,
+                        supportingText = if (looksLikeEmail) {
+                            { Text("Isto é um e-mail. Cole aqui o Access ID do projeto, não o login do Smart Life.") }
+                        } else null,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = secret, onValueChange = { secret = it.trim() },
-                        label = { Text("Access Secret / Client Secret") }, singleLine = true,
+                        label = { Text("Access Secret (do projeto Tuya)") }, singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth(),
@@ -165,7 +180,7 @@ fun TuyaScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                     Button(
                         onClick = { vm.connectTuya(TuyaCredentials(accessId, secret, region)) },
-                        enabled = accessId.isNotBlank() && secret.isNotBlank() && !state.busy,
+                        enabled = accessId.isNotBlank() && secret.isNotBlank() && !looksLikeEmail && !state.busy,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Conectar e buscar equipamentos") }
                     MutedText("As chaves ficam salvas só neste celular.", Modifier.padding(top = 8.dp))
